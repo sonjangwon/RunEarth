@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/enums.dart';
+import '../models/geo.dart';
 import '../models/run.dart';
 
 part 'app_database.g.dart';
@@ -34,6 +36,9 @@ class Runs extends Table {
   BoolColumn get gpsVerified => boolean().nullable()();
   IntColumn get source => intEnum<RunSource>()();
 
+  /// 추적된 GPS 경로. `[{"lat":..,"lng":..}, ...]` JSON 문자열로 저장.
+  TextColumn get route => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -44,7 +49,18 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          // v1 → v2: 추적 경로(route) 컬럼 추가.
+          if (from < 2) {
+            await m.addColumn(runs, runs.route);
+          }
+        },
+      );
 
   /// 전체 기록 (최신순). 삭제 정책 없음(records.md) — 조회/추가만 제공.
   Future<List<Run>> getAllRuns() async {
@@ -74,6 +90,20 @@ LazyDatabase _openConnection() {
   });
 }
 
+/// route JSON 문자열 ↔ 좌표 배열 변환 헬퍼.
+List<LatLngPoint> _decodeRoute(String? json) {
+  if (json == null || json.isEmpty) return const [];
+  final list = jsonDecode(json) as List<dynamic>;
+  return list
+      .map((e) => LatLngPoint.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
+
+String? _encodeRoute(List<LatLngPoint> route) {
+  if (route.isEmpty) return null;
+  return jsonEncode(route.map((p) => p.toJson()).toList());
+}
+
 /// drift 행(RunRow) ↔ 모델(Run) 변환.
 extension RunRowMapper on RunRow {
   Run toModel() => Run(
@@ -93,6 +123,7 @@ extension RunRowMapper on RunRow {
         marathonCourseId: marathonCourseId,
         gpsVerified: gpsVerified,
         source: source,
+        route: _decodeRoute(route),
       );
 }
 
@@ -114,6 +145,7 @@ extension RunCompanionMapper on Run {
         marathonCourseId: Value(marathonCourseId),
         gpsVerified: Value(gpsVerified),
         source: Value(source),
+        route: Value(_encodeRoute(route)),
       );
 }
 

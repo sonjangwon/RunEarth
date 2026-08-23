@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Run {
 
- String get id; String get date; String get day; double get km; String get pace; String get dur; int get kcal; RecordType get type; int get year; int get month; CoverImageType get coverImageType; String? get coverImageUrl; String? get marathonChallengeId; String? get marathonCourseId; bool? get gpsVerified; RunSource get source;
+ String get id; String get date; String get day; double get km; String get pace; String get dur; int get kcal; RecordType get type; int get year; int get month; CoverImageType get coverImageType; String? get coverImageUrl; String? get marathonChallengeId; String? get marathonCourseId; bool? get gpsVerified; RunSource get source; List<LatLngPoint> get route;
 /// Create a copy of Run
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +29,16 @@ $RunCopyWith<Run> get copyWith => _$RunCopyWithImpl<Run>(this as Run, _$identity
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Run&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.day, day) || other.day == day)&&(identical(other.km, km) || other.km == km)&&(identical(other.pace, pace) || other.pace == pace)&&(identical(other.dur, dur) || other.dur == dur)&&(identical(other.kcal, kcal) || other.kcal == kcal)&&(identical(other.type, type) || other.type == type)&&(identical(other.year, year) || other.year == year)&&(identical(other.month, month) || other.month == month)&&(identical(other.coverImageType, coverImageType) || other.coverImageType == coverImageType)&&(identical(other.coverImageUrl, coverImageUrl) || other.coverImageUrl == coverImageUrl)&&(identical(other.marathonChallengeId, marathonChallengeId) || other.marathonChallengeId == marathonChallengeId)&&(identical(other.marathonCourseId, marathonCourseId) || other.marathonCourseId == marathonCourseId)&&(identical(other.gpsVerified, gpsVerified) || other.gpsVerified == gpsVerified)&&(identical(other.source, source) || other.source == source));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Run&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.day, day) || other.day == day)&&(identical(other.km, km) || other.km == km)&&(identical(other.pace, pace) || other.pace == pace)&&(identical(other.dur, dur) || other.dur == dur)&&(identical(other.kcal, kcal) || other.kcal == kcal)&&(identical(other.type, type) || other.type == type)&&(identical(other.year, year) || other.year == year)&&(identical(other.month, month) || other.month == month)&&(identical(other.coverImageType, coverImageType) || other.coverImageType == coverImageType)&&(identical(other.coverImageUrl, coverImageUrl) || other.coverImageUrl == coverImageUrl)&&(identical(other.marathonChallengeId, marathonChallengeId) || other.marathonChallengeId == marathonChallengeId)&&(identical(other.marathonCourseId, marathonCourseId) || other.marathonCourseId == marathonCourseId)&&(identical(other.gpsVerified, gpsVerified) || other.gpsVerified == gpsVerified)&&(identical(other.source, source) || other.source == source)&&const DeepCollectionEquality().equals(other.route, route));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,date,day,km,pace,dur,kcal,type,year,month,coverImageType,coverImageUrl,marathonChallengeId,marathonCourseId,gpsVerified,source);
+int get hashCode => Object.hash(runtimeType,id,date,day,km,pace,dur,kcal,type,year,month,coverImageType,coverImageUrl,marathonChallengeId,marathonCourseId,gpsVerified,source,const DeepCollectionEquality().hash(route));
 
 @override
 String toString() {
-  return 'Run(id: $id, date: $date, day: $day, km: $km, pace: $pace, dur: $dur, kcal: $kcal, type: $type, year: $year, month: $month, coverImageType: $coverImageType, coverImageUrl: $coverImageUrl, marathonChallengeId: $marathonChallengeId, marathonCourseId: $marathonCourseId, gpsVerified: $gpsVerified, source: $source)';
+  return 'Run(id: $id, date: $date, day: $day, km: $km, pace: $pace, dur: $dur, kcal: $kcal, type: $type, year: $year, month: $month, coverImageType: $coverImageType, coverImageUrl: $coverImageUrl, marathonChallengeId: $marathonChallengeId, marathonCourseId: $marathonCourseId, gpsVerified: $gpsVerified, source: $source, route: $route)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $RunCopyWith<$Res>  {
   factory $RunCopyWith(Run value, $Res Function(Run) _then) = _$RunCopyWithImpl;
 @useResult
 $Res call({
- String id, String date, String day, double km, String pace, String dur, int kcal, RecordType type, int year, int month, CoverImageType coverImageType, String? coverImageUrl, String? marathonChallengeId, String? marathonCourseId, bool? gpsVerified, RunSource source
+ String id, String date, String day, double km, String pace, String dur, int kcal, RecordType type, int year, int month, CoverImageType coverImageType, String? coverImageUrl, String? marathonChallengeId, String? marathonCourseId, bool? gpsVerified, RunSource source, List<LatLngPoint> route
 });
 
 
@@ -66,7 +66,7 @@ class _$RunCopyWithImpl<$Res>
 
 /// Create a copy of Run
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? date = null,Object? day = null,Object? km = null,Object? pace = null,Object? dur = null,Object? kcal = null,Object? type = null,Object? year = null,Object? month = null,Object? coverImageType = null,Object? coverImageUrl = freezed,Object? marathonChallengeId = freezed,Object? marathonCourseId = freezed,Object? gpsVerified = freezed,Object? source = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? date = null,Object? day = null,Object? km = null,Object? pace = null,Object? dur = null,Object? kcal = null,Object? type = null,Object? year = null,Object? month = null,Object? coverImageType = null,Object? coverImageUrl = freezed,Object? marathonChallengeId = freezed,Object? marathonCourseId = freezed,Object? gpsVerified = freezed,Object? source = null,Object? route = null,}) {
   return _then(Run(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
@@ -84,7 +84,8 @@ as String?,marathonChallengeId: freezed == marathonChallengeId ? _self.marathonC
 as String?,marathonCourseId: freezed == marathonCourseId ? _self.marathonCourseId : marathonCourseId // ignore: cast_nullable_to_non_nullable
 as String?,gpsVerified: freezed == gpsVerified ? _self.gpsVerified : gpsVerified // ignore: cast_nullable_to_non_nullable
 as bool?,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
-as RunSource,
+as RunSource,route: null == route ? _self.route : route // ignore: cast_nullable_to_non_nullable
+as List<LatLngPoint>,
   ));
 }
 
@@ -169,10 +170,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String date,  String day,  double km,  String pace,  String dur,  int kcal,  RecordType type,  int year,  int month,  CoverImageType coverImageType,  String? coverImageUrl,  String? marathonChallengeId,  String? marathonCourseId,  bool? gpsVerified,  RunSource source)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String date,  String day,  double km,  String pace,  String dur,  int kcal,  RecordType type,  int year,  int month,  CoverImageType coverImageType,  String? coverImageUrl,  String? marathonChallengeId,  String? marathonCourseId,  bool? gpsVerified,  RunSource source,  List<LatLngPoint> route)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Run() when $default != null:
-return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_that.kcal,_that.type,_that.year,_that.month,_that.coverImageType,_that.coverImageUrl,_that.marathonChallengeId,_that.marathonCourseId,_that.gpsVerified,_that.source);case _:
+return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_that.kcal,_that.type,_that.year,_that.month,_that.coverImageType,_that.coverImageUrl,_that.marathonChallengeId,_that.marathonCourseId,_that.gpsVerified,_that.source,_that.route);case _:
   return orElse();
 
 }
@@ -190,10 +191,10 @@ return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String date,  String day,  double km,  String pace,  String dur,  int kcal,  RecordType type,  int year,  int month,  CoverImageType coverImageType,  String? coverImageUrl,  String? marathonChallengeId,  String? marathonCourseId,  bool? gpsVerified,  RunSource source)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String date,  String day,  double km,  String pace,  String dur,  int kcal,  RecordType type,  int year,  int month,  CoverImageType coverImageType,  String? coverImageUrl,  String? marathonChallengeId,  String? marathonCourseId,  bool? gpsVerified,  RunSource source,  List<LatLngPoint> route)  $default,) {final _that = this;
 switch (_that) {
 case _Run():
-return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_that.kcal,_that.type,_that.year,_that.month,_that.coverImageType,_that.coverImageUrl,_that.marathonChallengeId,_that.marathonCourseId,_that.gpsVerified,_that.source);case _:
+return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_that.kcal,_that.type,_that.year,_that.month,_that.coverImageType,_that.coverImageUrl,_that.marathonChallengeId,_that.marathonCourseId,_that.gpsVerified,_that.source,_that.route);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -210,10 +211,10 @@ return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String date,  String day,  double km,  String pace,  String dur,  int kcal,  RecordType type,  int year,  int month,  CoverImageType coverImageType,  String? coverImageUrl,  String? marathonChallengeId,  String? marathonCourseId,  bool? gpsVerified,  RunSource source)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String date,  String day,  double km,  String pace,  String dur,  int kcal,  RecordType type,  int year,  int month,  CoverImageType coverImageType,  String? coverImageUrl,  String? marathonChallengeId,  String? marathonCourseId,  bool? gpsVerified,  RunSource source,  List<LatLngPoint> route)?  $default,) {final _that = this;
 switch (_that) {
 case _Run() when $default != null:
-return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_that.kcal,_that.type,_that.year,_that.month,_that.coverImageType,_that.coverImageUrl,_that.marathonChallengeId,_that.marathonCourseId,_that.gpsVerified,_that.source);case _:
+return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_that.kcal,_that.type,_that.year,_that.month,_that.coverImageType,_that.coverImageUrl,_that.marathonChallengeId,_that.marathonCourseId,_that.gpsVerified,_that.source,_that.route);case _:
   return null;
 
 }
@@ -225,7 +226,7 @@ return $default(_that.id,_that.date,_that.day,_that.km,_that.pace,_that.dur,_tha
 @JsonSerializable()
 
 class _Run implements Run {
-  const _Run({required this.id, required this.date, required this.day, required this.km, required this.pace, required this.dur, required this.kcal, required this.type, required this.year, required this.month, this.coverImageType = CoverImageType.route, this.coverImageUrl, this.marathonChallengeId, this.marathonCourseId, this.gpsVerified, this.source = RunSource.app});
+  const _Run({required this.id, required this.date, required this.day, required this.km, required this.pace, required this.dur, required this.kcal, required this.type, required this.year, required this.month, this.coverImageType = CoverImageType.route, this.coverImageUrl, this.marathonChallengeId, this.marathonCourseId, this.gpsVerified, this.source = RunSource.app,  List<LatLngPoint> route = const <LatLngPoint>[]}): _route = route;
   factory _Run.fromJson(Map<String, dynamic> json) => _$RunFromJson(json);
 
 @override final  String id;
@@ -244,6 +245,13 @@ class _Run implements Run {
 @override final  String? marathonCourseId;
 @override final  bool? gpsVerified;
 @override@JsonKey() final  RunSource source;
+ final  List<LatLngPoint> _route;
+@override@JsonKey() List<LatLngPoint> get route {
+  if (_route is EqualUnmodifiableListView) return _route;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_route);
+}
+
 
 /// Create a copy of Run
 /// with the given fields replaced by the non-null parameter values.
@@ -258,16 +266,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Run&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.day, day) || other.day == day)&&(identical(other.km, km) || other.km == km)&&(identical(other.pace, pace) || other.pace == pace)&&(identical(other.dur, dur) || other.dur == dur)&&(identical(other.kcal, kcal) || other.kcal == kcal)&&(identical(other.type, type) || other.type == type)&&(identical(other.year, year) || other.year == year)&&(identical(other.month, month) || other.month == month)&&(identical(other.coverImageType, coverImageType) || other.coverImageType == coverImageType)&&(identical(other.coverImageUrl, coverImageUrl) || other.coverImageUrl == coverImageUrl)&&(identical(other.marathonChallengeId, marathonChallengeId) || other.marathonChallengeId == marathonChallengeId)&&(identical(other.marathonCourseId, marathonCourseId) || other.marathonCourseId == marathonCourseId)&&(identical(other.gpsVerified, gpsVerified) || other.gpsVerified == gpsVerified)&&(identical(other.source, source) || other.source == source));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Run&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.day, day) || other.day == day)&&(identical(other.km, km) || other.km == km)&&(identical(other.pace, pace) || other.pace == pace)&&(identical(other.dur, dur) || other.dur == dur)&&(identical(other.kcal, kcal) || other.kcal == kcal)&&(identical(other.type, type) || other.type == type)&&(identical(other.year, year) || other.year == year)&&(identical(other.month, month) || other.month == month)&&(identical(other.coverImageType, coverImageType) || other.coverImageType == coverImageType)&&(identical(other.coverImageUrl, coverImageUrl) || other.coverImageUrl == coverImageUrl)&&(identical(other.marathonChallengeId, marathonChallengeId) || other.marathonChallengeId == marathonChallengeId)&&(identical(other.marathonCourseId, marathonCourseId) || other.marathonCourseId == marathonCourseId)&&(identical(other.gpsVerified, gpsVerified) || other.gpsVerified == gpsVerified)&&(identical(other.source, source) || other.source == source)&&const DeepCollectionEquality().equals(other._route, _route));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,date,day,km,pace,dur,kcal,type,year,month,coverImageType,coverImageUrl,marathonChallengeId,marathonCourseId,gpsVerified,source);
+int get hashCode => Object.hash(runtimeType,id,date,day,km,pace,dur,kcal,type,year,month,coverImageType,coverImageUrl,marathonChallengeId,marathonCourseId,gpsVerified,source,const DeepCollectionEquality().hash(_route));
 
 @override
 String toString() {
-  return 'Run(id: $id, date: $date, day: $day, km: $km, pace: $pace, dur: $dur, kcal: $kcal, type: $type, year: $year, month: $month, coverImageType: $coverImageType, coverImageUrl: $coverImageUrl, marathonChallengeId: $marathonChallengeId, marathonCourseId: $marathonCourseId, gpsVerified: $gpsVerified, source: $source)';
+  return 'Run(id: $id, date: $date, day: $day, km: $km, pace: $pace, dur: $dur, kcal: $kcal, type: $type, year: $year, month: $month, coverImageType: $coverImageType, coverImageUrl: $coverImageUrl, marathonChallengeId: $marathonChallengeId, marathonCourseId: $marathonCourseId, gpsVerified: $gpsVerified, source: $source, route: $route)';
 }
 
 
@@ -278,7 +286,7 @@ abstract mixin class _$RunCopyWith<$Res> implements $RunCopyWith<$Res> {
   factory _$RunCopyWith(_Run value, $Res Function(_Run) _then) = __$RunCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String date, String day, double km, String pace, String dur, int kcal, RecordType type, int year, int month, CoverImageType coverImageType, String? coverImageUrl, String? marathonChallengeId, String? marathonCourseId, bool? gpsVerified, RunSource source
+ String id, String date, String day, double km, String pace, String dur, int kcal, RecordType type, int year, int month, CoverImageType coverImageType, String? coverImageUrl, String? marathonChallengeId, String? marathonCourseId, bool? gpsVerified, RunSource source, List<LatLngPoint> route
 });
 
 
@@ -295,7 +303,7 @@ class __$RunCopyWithImpl<$Res>
 
 /// Create a copy of Run
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? date = null,Object? day = null,Object? km = null,Object? pace = null,Object? dur = null,Object? kcal = null,Object? type = null,Object? year = null,Object? month = null,Object? coverImageType = null,Object? coverImageUrl = freezed,Object? marathonChallengeId = freezed,Object? marathonCourseId = freezed,Object? gpsVerified = freezed,Object? source = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? date = null,Object? day = null,Object? km = null,Object? pace = null,Object? dur = null,Object? kcal = null,Object? type = null,Object? year = null,Object? month = null,Object? coverImageType = null,Object? coverImageUrl = freezed,Object? marathonChallengeId = freezed,Object? marathonCourseId = freezed,Object? gpsVerified = freezed,Object? source = null,Object? route = null,}) {
   return _then(_Run(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
@@ -313,7 +321,8 @@ as String?,marathonChallengeId: freezed == marathonChallengeId ? _self.marathonC
 as String?,marathonCourseId: freezed == marathonCourseId ? _self.marathonCourseId : marathonCourseId // ignore: cast_nullable_to_non_nullable
 as String?,gpsVerified: freezed == gpsVerified ? _self.gpsVerified : gpsVerified // ignore: cast_nullable_to_non_nullable
 as bool?,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
-as RunSource,
+as RunSource,route: null == route ? _self._route : route // ignore: cast_nullable_to_non_nullable
+as List<LatLngPoint>,
   ));
 }
 

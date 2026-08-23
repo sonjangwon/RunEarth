@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'enums.dart';
+import 'geo.dart';
 
 part 'run.freezed.dart';
 part 'run.g.dart';
@@ -15,6 +16,8 @@ part 'run.g.dart';
 /// - wearable-sync.md 6: source
 ///
 /// [id] 는 문서에 없는 기술 필드 — 로컬 DB/서버 동기화용 고유 식별자.
+/// [route] 는 실제 추적된 GPS 좌표 배열 — 대표 이미지(경로 렌더) 생성/재생성·
+///   상세 경로 표시용. run-flow.md 6 의 polyline 을 코드 정본으로 반영(2026-08-23 확정).
 @freezed
 abstract class Run with _$Run {
   const factory Run({
@@ -34,6 +37,7 @@ abstract class Run with _$Run {
     String? marathonCourseId,
     bool? gpsVerified,
     @Default(RunSource.app) RunSource source,
+    @Default(<LatLngPoint>[]) List<LatLngPoint> route,
   }) = _Run;
 
   factory Run.fromJson(Map<String, dynamic> json) => _$RunFromJson(json);

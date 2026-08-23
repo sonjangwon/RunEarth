@@ -26,6 +26,11 @@ _Run _$RunFromJson(Map<String, dynamic> json) => _Run(
   gpsVerified: json['gpsVerified'] as bool?,
   source:
       $enumDecodeNullable(_$RunSourceEnumMap, json['source']) ?? RunSource.app,
+  route:
+      (json['route'] as List<dynamic>?)
+          ?.map((e) => LatLngPoint.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <LatLngPoint>[],
 );
 
 Map<String, dynamic> _$RunToJson(_Run instance) => <String, dynamic>{
@@ -45,6 +50,7 @@ Map<String, dynamic> _$RunToJson(_Run instance) => <String, dynamic>{
   'marathonCourseId': instance.marathonCourseId,
   'gpsVerified': instance.gpsVerified,
   'source': _$RunSourceEnumMap[instance.source]!,
+  'route': instance.route,
 };
 
 const _$RecordTypeEnumMap = {

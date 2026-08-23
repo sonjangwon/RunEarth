@@ -163,6 +163,15 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
         type: DriftSqlType.int,
         requiredDuringInsert: true,
       ).withConverter<RunSource>($RunsTable.$convertersource);
+  static const VerificationMeta _routeMeta = const VerificationMeta('route');
+  @override
+  late final GeneratedColumn<String> route = GeneratedColumn<String>(
+    'route',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -181,6 +190,7 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
     marathonCourseId,
     gpsVerified,
     source,
+    route,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -296,6 +306,12 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
         ),
       );
     }
+    if (data.containsKey('route')) {
+      context.handle(
+        _routeMeta,
+        route.isAcceptableOrUnknown(data['route']!, _routeMeta),
+      );
+    }
     return context;
   }
 
@@ -375,6 +391,10 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
           data['${effectivePrefix}source'],
         )!,
       ),
+      route: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}route'],
+      ),
     );
   }
 
@@ -408,6 +428,9 @@ class RunRow extends DataClass implements Insertable<RunRow> {
   final String? marathonCourseId;
   final bool? gpsVerified;
   final RunSource source;
+
+  /// 추적된 GPS 경로. `[{"lat":..,"lng":..}, ...]` JSON 문자열로 저장.
+  final String? route;
   const RunRow({
     required this.id,
     required this.date,
@@ -425,6 +448,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     this.marathonCourseId,
     this.gpsVerified,
     required this.source,
+    this.route,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -461,6 +485,9 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     {
       map['source'] = Variable<int>($RunsTable.$convertersource.toSql(source));
     }
+    if (!nullToAbsent || route != null) {
+      map['route'] = Variable<String>(route);
+    }
     return map;
   }
 
@@ -490,6 +517,9 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           ? const Value.absent()
           : Value(gpsVerified),
       source: Value(source),
+      route: route == null && nullToAbsent
+          ? const Value.absent()
+          : Value(route),
     );
   }
 
@@ -523,6 +553,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
       source: $RunsTable.$convertersource.fromJson(
         serializer.fromJson<int>(json['source']),
       ),
+      route: serializer.fromJson<String?>(json['route']),
     );
   }
   @override
@@ -549,6 +580,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
       'source': serializer.toJson<int>(
         $RunsTable.$convertersource.toJson(source),
       ),
+      'route': serializer.toJson<String?>(route),
     };
   }
 
@@ -569,6 +601,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     Value<String?> marathonCourseId = const Value.absent(),
     Value<bool?> gpsVerified = const Value.absent(),
     RunSource? source,
+    Value<String?> route = const Value.absent(),
   }) => RunRow(
     id: id ?? this.id,
     date: date ?? this.date,
@@ -592,6 +625,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
         : this.marathonCourseId,
     gpsVerified: gpsVerified.present ? gpsVerified.value : this.gpsVerified,
     source: source ?? this.source,
+    route: route.present ? route.value : this.route,
   );
   RunRow copyWithCompanion(RunsCompanion data) {
     return RunRow(
@@ -621,6 +655,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           ? data.gpsVerified.value
           : this.gpsVerified,
       source: data.source.present ? data.source.value : this.source,
+      route: data.route.present ? data.route.value : this.route,
     );
   }
 
@@ -642,7 +677,8 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           ..write('marathonChallengeId: $marathonChallengeId, ')
           ..write('marathonCourseId: $marathonCourseId, ')
           ..write('gpsVerified: $gpsVerified, ')
-          ..write('source: $source')
+          ..write('source: $source, ')
+          ..write('route: $route')
           ..write(')'))
         .toString();
   }
@@ -665,6 +701,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     marathonCourseId,
     gpsVerified,
     source,
+    route,
   );
   @override
   bool operator ==(Object other) =>
@@ -685,7 +722,8 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           other.marathonChallengeId == this.marathonChallengeId &&
           other.marathonCourseId == this.marathonCourseId &&
           other.gpsVerified == this.gpsVerified &&
-          other.source == this.source);
+          other.source == this.source &&
+          other.route == this.route);
 }
 
 class RunsCompanion extends UpdateCompanion<RunRow> {
@@ -705,6 +743,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
   final Value<String?> marathonCourseId;
   final Value<bool?> gpsVerified;
   final Value<RunSource> source;
+  final Value<String?> route;
   final Value<int> rowid;
   const RunsCompanion({
     this.id = const Value.absent(),
@@ -723,6 +762,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     this.marathonCourseId = const Value.absent(),
     this.gpsVerified = const Value.absent(),
     this.source = const Value.absent(),
+    this.route = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RunsCompanion.insert({
@@ -742,6 +782,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     this.marathonCourseId = const Value.absent(),
     this.gpsVerified = const Value.absent(),
     required RunSource source,
+    this.route = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        date = Value(date),
@@ -772,6 +813,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     Expression<String>? marathonCourseId,
     Expression<bool>? gpsVerified,
     Expression<int>? source,
+    Expression<String>? route,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -792,6 +834,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
       if (marathonCourseId != null) 'marathon_course_id': marathonCourseId,
       if (gpsVerified != null) 'gps_verified': gpsVerified,
       if (source != null) 'source': source,
+      if (route != null) 'route': route,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -813,6 +856,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     Value<String?>? marathonCourseId,
     Value<bool?>? gpsVerified,
     Value<RunSource>? source,
+    Value<String?>? route,
     Value<int>? rowid,
   }) {
     return RunsCompanion(
@@ -832,6 +876,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
       marathonCourseId: marathonCourseId ?? this.marathonCourseId,
       gpsVerified: gpsVerified ?? this.gpsVerified,
       source: source ?? this.source,
+      route: route ?? this.route,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -893,6 +938,9 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
         $RunsTable.$convertersource.toSql(source.value),
       );
     }
+    if (route.present) {
+      map['route'] = Variable<String>(route.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -918,6 +966,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
           ..write('marathonCourseId: $marathonCourseId, ')
           ..write('gpsVerified: $gpsVerified, ')
           ..write('source: $source, ')
+          ..write('route: $route, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -953,6 +1002,7 @@ typedef $$RunsTableCreateCompanionBuilder =
       Value<String?> marathonCourseId,
       Value<bool?> gpsVerified,
       required RunSource source,
+      Value<String?> route,
       Value<int> rowid,
     });
 typedef $$RunsTableUpdateCompanionBuilder =
@@ -973,6 +1023,7 @@ typedef $$RunsTableUpdateCompanionBuilder =
       Value<String?> marathonCourseId,
       Value<bool?> gpsVerified,
       Value<RunSource> source,
+      Value<String?> route,
       Value<int> rowid,
     });
 
@@ -1066,6 +1117,11 @@ class $$RunsTableFilterComposer extends Composer<_$AppDatabase, $RunsTable> {
         column: $table.source,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  ColumnFilters<String> get route => $composableBuilder(
+    column: $table.route,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$RunsTableOrderingComposer extends Composer<_$AppDatabase, $RunsTable> {
@@ -1155,6 +1211,11 @@ class $$RunsTableOrderingComposer extends Composer<_$AppDatabase, $RunsTable> {
     column: $table.source,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get route => $composableBuilder(
+    column: $table.route,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RunsTableAnnotationComposer
@@ -1224,6 +1285,9 @@ class $$RunsTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<RunSource, int> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<String> get route =>
+      $composableBuilder(column: $table.route, builder: (column) => column);
 }
 
 class $$RunsTableTableManager
@@ -1270,6 +1334,7 @@ class $$RunsTableTableManager
                 Value<String?> marathonCourseId = const Value.absent(),
                 Value<bool?> gpsVerified = const Value.absent(),
                 Value<RunSource> source = const Value.absent(),
+                Value<String?> route = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RunsCompanion(
                 id: id,
@@ -1288,6 +1353,7 @@ class $$RunsTableTableManager
                 marathonCourseId: marathonCourseId,
                 gpsVerified: gpsVerified,
                 source: source,
+                route: route,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1308,6 +1374,7 @@ class $$RunsTableTableManager
                 Value<String?> marathonCourseId = const Value.absent(),
                 Value<bool?> gpsVerified = const Value.absent(),
                 required RunSource source,
+                Value<String?> route = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RunsCompanion.insert(
                 id: id,
@@ -1326,6 +1393,7 @@ class $$RunsTableTableManager
                 marathonCourseId: marathonCourseId,
                 gpsVerified: gpsVerified,
                 source: source,
+                route: route,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
