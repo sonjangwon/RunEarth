@@ -349,8 +349,13 @@ class _RunMapState extends State<_RunMap> {
         Positioned.fill(
           child: GoogleMap(
             initialCameraPosition: CameraPosition(target: initial, zoom: 17),
-            style: _darkMapStyle,
-            onMapCreated: (ctrl) => _controller = ctrl,
+            onMapCreated: (ctrl) {
+              _controller = ctrl;
+              // style 파라미터는 최신 렌더러에서만 먹으므로, 구형 LEGACY
+              // 렌더러에서도 다크 스타일이 적용되도록 setMapStyle 을 쓴다.
+              // ignore: deprecated_member_use
+              ctrl.setMapStyle(_darkMapStyle);
+            },
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
