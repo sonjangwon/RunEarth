@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>MAPS_API_KEY</key>
+	<string>$(MAPS_API_KEY)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>러닝 경로와 거리를 기록하기 위해 위치 정보를 사용합니다.</string>
 	<key>CFBundleDevelopmentRegion</key>

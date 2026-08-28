@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../core/models/enums.dart';
@@ -52,7 +53,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     final Widget body = switch (state.phase) {
       RunSessionPhase.prerun =>
         _Prerun(runType: state.runType, onStart: tracker.start),
-      RunSessionPhase.countdown => const _RouteView(route: []),
+      RunSessionPhase.countdown =>
+        const ColoredBox(color: AppColors.background),
       RunSessionPhase.running ||
       RunSessionPhase.paused =>
         _Running(
@@ -132,7 +134,11 @@ class _Running extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(
-                child: _RouteView(route: state.route, recording: true),
+                child: _RunMap(
+                  route: state.route,
+                  current: state.current,
+                  recording: true,
+                ),
               ),
               Positioned(
                 top: 12,
@@ -298,29 +304,85 @@ class _NoRoutePlaceholder extends StatelessWidget {
   }
 }
 
-// ── 경로 뷰 (지도 대체: 캔버스 폴리라인) ─────────────────────────
-class _RouteView extends StatelessWidget {
-  const _RouteView({required this.route, this.recording = false});
+// ── 러닝 중 지도 (GoogleMap 실지도) ───────────────────────────
+/// 러닝 중 실제 지도 위에 경로를 네온그린 폴리라인으로 그린다.
+/// 커버 이미지(결과 화면)는 여전히 [RoutePainter] 캔버스를 쓴다(결정사항 #2).
+class _RunMap extends StatefulWidget {
+  const _RunMap({
+    required this.route,
+    required this.current,
+    this.recording = false,
+  });
+
   final List<LatLngPoint> route;
+  final LatLngPoint? current;
   final bool recording;
 
   @override
+  State<_RunMap> createState() => _RunMapState();
+}
+
+class _RunMapState extends State<_RunMap> {
+  GoogleMapController? _controller;
+
+  /// 현재 위치를 아직 못 잡았을 때 초기 카메라(서울 시청). 곧 실제 위치로 이동.
+  static const _fallback = LatLng(37.5665, 126.9780);
+
+  @override
+  void didUpdateWidget(covariant _RunMap old) {
+    super.didUpdateWidget(old);
+    final c = widget.current;
+    if (c != null && c != old.current) {
+      _controller?.animateCamera(
+        CameraUpdate.newLatLng(LatLng(c.lat, c.lng)),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final c = widget.current;
+    final initial = c != null ? LatLng(c.lat, c.lng) : _fallback;
+
     return Stack(
       children: [
         Positioned.fill(
-          child: CustomPaint(
-            size: Size.infinite,
-            painter: RoutePainter(route: route, showEndpoints: route.length >= 2),
+          child: GoogleMap(
+            initialCameraPosition: CameraPosition(target: initial, zoom: 17),
+            style: _darkMapStyle,
+            onMapCreated: (ctrl) => _controller = ctrl,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            compassEnabled: false,
+            mapToolbarEnabled: false,
+            polylines: {
+              if (widget.route.length >= 2)
+                Polyline(
+                  polylineId: const PolylineId('run'),
+                  points: [
+                    for (final p in widget.route) LatLng(p.lat, p.lng),
+                  ],
+                  color: AppColors.primary,
+                  width: 5,
+                ),
+            },
           ),
         ),
-        if (route.length < 2)
+        if (widget.route.length < 2)
           Center(
-            child: Text('🛰  GPS 신호를 기다리는 중…',
-                style: AppTextStyles.sans(
-                    fontSize: 12, color: AppColors.mutedForeground)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(0x99),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text('🛰  GPS 신호를 기다리는 중…',
+                  style: AppTextStyles.sans(
+                      fontSize: 12, color: AppColors.mutedForeground)),
+            ),
           ),
-        if (recording)
+        if (widget.recording)
           Positioned(
             top: 12,
             left: 16,
@@ -352,6 +414,21 @@ class _RouteView extends StatelessWidget {
     );
   }
 }
+
+/// 앱 다크 팔레트에 맞춘 Google Map 스타일(POI/대중교통 라벨 최소화).
+const String _darkMapStyle = '''
+[
+  {"elementType":"geometry","stylers":[{"color":"#0d1018"}]},
+  {"elementType":"labels.text.fill","stylers":[{"color":"#6b7280"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"#070911"}]},
+  {"featureType":"poi","stylers":[{"visibility":"off"}]},
+  {"featureType":"transit","stylers":[{"visibility":"off"}]},
+  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#1b2130"}]},
+  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#0d1018"}]},
+  {"featureType":"road","elementType":"labels.icon","stylers":[{"visibility":"off"}]},
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#070911"}]}
+]
+''';
 
 // ── countdown overlay ─────────────────────────────────────────
 class _CountdownOverlay extends StatelessWidget {

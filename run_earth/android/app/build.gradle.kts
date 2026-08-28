@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Google Maps 키 등 비밀값. secrets.properties(.gitignore)에서 읽는다.
+val secretsProperties = Properties().apply {
+    val f = rootProject.file("secrets.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -23,6 +31,10 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // AndroidManifest 의 ${MAPS_API_KEY} 자리에 주입. 키 없으면 빈 값(지도 회색).
+        manifestPlaceholders["MAPS_API_KEY"] =
+            secretsProperties.getProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {

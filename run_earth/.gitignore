@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 비밀 키 (Google Maps 등) — 커밋 금지
+/android/secrets.properties
+/ios/Runner/Secrets.xcconfig
