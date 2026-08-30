@@ -47,3 +47,6 @@ app.*.map.json
 # 비밀 키 (Google Maps 등) — 커밋 금지
 /android/secrets.properties
 /ios/Runner/Secrets.xcconfig
+
+# Supabase 접속 키 (--dart-define-from-file) — 커밋 금지. 형식은 env.example.json 참고
+/env.json
