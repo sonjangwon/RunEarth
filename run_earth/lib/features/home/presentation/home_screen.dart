@@ -1,44 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/streak_day.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/home_providers.dart';
 
-// ── 임시 샘플 데이터 ─────────────────────────────────────────────
-// Figma(App.tsx)의 값과 동일. 이후 단위에서 로컬 DB/여정 상태로 교체된다.
+// 사용자 이름은 인증/프로필 단위에서 실데이터로 교체된다(아직 미구현).
 const _userName = '이민준';
-const _totalKm = 247.3;
-const _segmentFrom = '전주';
-const _segmentTo = '부산';
-const _segmentFromKm = 194;
-const _segmentToKm = 325;
-const _totalHours = 98;
-const _totalMinutes = 48;
-const _totalCount = 38;
-const _weekStreakCount = 4;
-
-const _milestones = <({String city, bool done, bool current})>[
-  (city: '서울', done: true, current: false),
-  (city: '인천', done: true, current: false),
-  (city: '전주', done: true, current: false),
-  (city: '부산', done: false, current: true),
-  (city: '베이징', done: false, current: false),
-];
-
-const _streakWeek = <StreakDay>[
-  StreakDay(name: '월', date: '7/27', ran: false),
-  StreakDay(name: '화', date: '7/28', ran: true, consec: 1),
-  StreakDay(name: '수', date: '7/29', ran: true, consec: 2),
-  StreakDay(name: '목', date: '7/30', ran: true, consec: 3),
-  StreakDay(name: '금', date: '7/31', ran: true, consec: 4),
-  StreakDay(name: '토', date: '8/1', ran: true, consec: 5, today: true),
-  StreakDay(name: '일', date: '8/2', ran: false, future: true),
-];
-
-double get _segmentPct =>
-    ((_totalKm - _segmentFromKm) / (_segmentToKm - _segmentFromKm))
-        .clamp(0.0, 1.0);
-String get _remainingKm => (_segmentToKm - _totalKm).toStringAsFixed(1);
 
 String _greeting() {
   final h = DateTime.now().hour;
@@ -50,11 +19,15 @@ String _greeting() {
 
 /// 홈 탭 — 여정·스트릭·통계·CTA.
 /// 정본: home.md(인사말/빈상태), journey.md(여정), streak.md(스트릭).
-class HomeScreen extends StatelessWidget {
+/// 여정·통계·스트릭은 로컬 DB 기록(runsStreamProvider)에서 계산된다.
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(homeStatsProvider);
+    final journey = ref.watch(journeyProgressProvider);
+    final streak = ref.watch(streakProvider);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -65,11 +38,11 @@ class HomeScreen extends StatelessWidget {
             children: [
               _Greeting(),
               const SizedBox(height: 16),
-              const _JourneyCard(),
+              _JourneyCard(journey),
               const SizedBox(height: 12),
-              const _StatsRow(),
+              _StatsRow(stats),
               const SizedBox(height: 12),
-              const _StreakCard(),
+              _StreakCard(streak),
               const SizedBox(height: 16),
               const _StartCta(),
             ],
@@ -103,10 +76,17 @@ class _Greeting extends StatelessWidget {
 }
 
 class _JourneyCard extends StatelessWidget {
-  const _JourneyCard();
+  const _JourneyCard(this.journey);
+  final JourneyProgress journey;
 
   @override
   Widget build(BuildContext context) {
+    final segmentFrom = journey.fromCity.name;
+    final segmentTo = journey.toCity.name;
+    final fromKm = journey.fromCity.cumulativeKm.toStringAsFixed(0);
+    final toKm = journey.toCity.cumulativeKm.toStringAsFixed(0);
+    final remainingKm = journey.remainingKm.toStringAsFixed(1);
+    final positionKm = journey.absolutePositionKm.toStringAsFixed(1);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -143,7 +123,7 @@ class _JourneyCard extends StatelessWidget {
                       Text('현재 여정',
                           style: AppTextStyles.mono(
                               fontSize: 8, color: AppColors.primary)),
-                      Text('$_segmentFrom → $_segmentTo',
+                      Text('$segmentFrom → $segmentTo',
                           style: AppTextStyles.display(fontSize: 18)),
                     ],
                   ),
@@ -159,7 +139,7 @@ class _JourneyCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white.withAlpha(0x1A)),
                     ),
-                    child: Text('$_remainingKm km 남음',
+                    child: Text('$remainingKm km 남음',
                         style: AppTextStyles.mono(
                             fontSize: 10, fontWeight: FontWeight.w500)),
                   ),
@@ -174,15 +154,15 @@ class _JourneyCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('$_segmentFrom ${_segmentFromKm}km',
+                    Text('$segmentFrom ${fromKm}km',
                         style: AppTextStyles.mono(
                             fontSize: 8, color: AppColors.mutedForeground)),
-                    Text('${_totalKm}km ▲',
+                    Text('${positionKm}km ▲',
                         style: AppTextStyles.mono(
                             fontSize: 8,
                             fontWeight: FontWeight.w700,
                             color: AppColors.primary)),
-                    Text('$_segmentTo ${_segmentToKm}km',
+                    Text('$segmentTo ${toKm}km',
                         style: AppTextStyles.mono(
                             fontSize: 8, color: AppColors.mutedForeground)),
                   ],
@@ -192,7 +172,7 @@ class _JourneyCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
-                    value: _segmentPct,
+                    value: journey.segmentPct,
                     minHeight: 6,
                     backgroundColor: AppColors.muted,
                     valueColor:
@@ -204,9 +184,9 @@ class _JourneyCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    for (final m in _milestones)
+                    for (final m in journey.milestones)
                       _MilestoneDot(
-                          city: m.city, done: m.done, current: m.current),
+                          city: m.name, done: m.done, current: m.current),
                   ],
                 ),
               ],
@@ -266,7 +246,8 @@ class _MilestoneDot extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+  const _StatsRow(this.stats);
+  final HomeStats stats;
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +257,7 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(
               icon: Icons.timeline,
               label: '총 거리',
-              value: '$_totalKm',
+              value: stats.totalKm.toStringAsFixed(1),
               unit: 'km'),
         ),
         const SizedBox(width: 8),
@@ -284,7 +265,7 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(
               icon: Icons.schedule,
               label: '총 시간',
-              value: '${_totalHours}h ${_totalMinutes}m',
+              value: stats.durationLabel,
               unit: ''),
         ),
         const SizedBox(width: 8),
@@ -292,7 +273,7 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(
               icon: Icons.directions_run,
               label: '총 횟수',
-              value: '$_totalCount',
+              value: '${stats.count}',
               unit: '회'),
         ),
       ],
@@ -354,7 +335,8 @@ class _StatCard extends StatelessWidget {
 }
 
 class _StreakCard extends StatelessWidget {
-  const _StreakCard();
+  const _StreakCard(this.streak);
+  final StreakInfo streak;
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +371,7 @@ class _StreakCard extends StatelessWidget {
                   border:
                       Border.all(color: AppColors.primary.withAlpha(0x35)),
                 ),
-                child: Text('$_weekStreakCount주 연속',
+                child: Text('${streak.weekStreakCount}주 연속',
                     style: AppTextStyles.mono(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
@@ -401,7 +383,7 @@ class _StreakCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              for (final d in _streakWeek) _StreakDot(d),
+              for (final d in streak.week) _StreakDot(d),
             ],
           ),
         ],
