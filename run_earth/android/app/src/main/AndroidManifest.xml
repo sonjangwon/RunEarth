@@ -2,6 +2,8 @@
     <!-- 러닝 GPS 추적(포그라운드). 백그라운드 추적은 이후 단위에서 추가. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Supabase·지도·구글로그인·콘텐츠 이미지 등 네트워크 통신. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="run_earth"
         android:name="${applicationName}"

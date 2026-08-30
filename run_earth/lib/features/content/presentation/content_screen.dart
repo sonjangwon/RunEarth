@@ -4,6 +4,7 @@ import '../../../core/models/marathon.dart';
 import '../../../core/models/theme_run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/util/images.dart';
 import '../data/content_sample_data.dart';
 
 enum _ContentTab { theme, marathon }
@@ -153,6 +154,29 @@ class _ThemeCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
+            if (run.img.isNotEmpty)
+              Positioned.fill(
+                child: Image.network(
+                  unsplashUrl(run.img, w: 600, h: 240),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            // 텍스트 가독성용 어두운 스크림.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withAlpha(0xD9),
+                      Colors.black.withAlpha(0x40),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             Positioned(
               right: -8,
               top: -10,
@@ -222,17 +246,30 @@ class _ThemeRunDetail extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  DecoratedBox(
-                    decoration: const BoxDecoration(
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topRight,
                         end: Alignment.bottomLeft,
                         colors: [Color(0xFF1A2336), Color(0xFF090C14)],
                       ),
                     ),
-                    child: Center(
-                        child: Text(run.emoji,
-                            style: const TextStyle(fontSize: 90))),
+                  ),
+                  if (run.img.isNotEmpty)
+                    Image.network(
+                      unsplashUrl(run.img, w: 600, h: 440),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  // 하단 스크림(제목 가독성).
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xCC000000)],
+                      ),
+                    ),
                   ),
                   Positioned(
                     top: 8,
@@ -398,17 +435,46 @@ class _MarathonCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 히어로
-          Container(
+          SizedBox(
             height: 96,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [Color(0xFF16233A), Color(0xFF0C1018)],
-              ),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Row(
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFF16233A), Color(0xFF0C1018)],
+                      ),
+                    ),
+                  ),
+                ),
+                if (m.img.isNotEmpty)
+                  Positioned.fill(
+                    child: Image.network(
+                      unsplashUrl(m.img, w: 600, h: 200),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.black.withAlpha(0xD9),
+                          Colors.black.withAlpha(0x40),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -427,6 +493,9 @@ class _MarathonCard extends StatelessWidget {
                   ],
                 ),
                 _DdayBadge(dday: m.dday, ended: m.ended),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

@@ -11,21 +11,21 @@ const sampleThemeRuns = <ThemeRun>[
       name: '붕어빵런',
       desc: '겨울 간식 명소를 잇는 테마 코스',
       km: 5.2,
-      img: ''),
+      img: 'photo-1476480862126-209bfaa8edc8'),
   ThemeRun(
       id: 'theme-2',
       emoji: '🌊',
       name: '한강야경런',
       desc: '한강변 야경을 감상하며 달리기',
       km: 8.7,
-      img: ''),
+      img: 'photo-1534430480872-3498386e7856'),
   ThemeRun(
       id: 'theme-3',
       emoji: '🗼',
       name: 'N서울타워런',
       desc: '남산을 오르는 도전 코스',
       km: 4.5,
-      img: ''),
+      img: 'photo-1517154421773-0529f29ea451'),
 ];
 
 const sampleMarathons = <Marathon>[
@@ -44,7 +44,7 @@ const sampleMarathons = <Marathon>[
     participants: '1,204',
     myRank: '현재 1위',
     myTime: '1:31:22',
-    img: '',
+    img: 'photo-1659242651571-fc2c6811b9d0',
   ),
   Marathon(
     id: 'm-2',
@@ -61,6 +61,6 @@ const sampleMarathons = <Marathon>[
     participants: '892',
     myRank: null,
     myTime: null,
-    img: '',
+    img: 'photo-1707748531054-d812360cc89d',
   ),
 ];

@@ -4,10 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/streak_day.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/util/images.dart';
 import '../data/home_providers.dart';
 
 // 사용자 이름은 인증/프로필 단위에서 실데이터로 교체된다(아직 미구현).
 const _userName = '이민준';
+
+// 여정 히어로 배경 (개발용 임시 Unsplash). journey.md 는 "다음 목적지 도시"별
+// 이미지를 규정하나 도시별 에셋이 [미확정] → 우선 단일 임시 이미지.
+const _journeyHeroImg = 'photo-1534430480872-3498386e7856';
 
 String _greeting() {
   final h = DateTime.now().hour;
@@ -114,6 +119,27 @@ class _JourneyCard extends StatelessWidget {
             ),
             child: Stack(
               children: [
+                Positioned.fill(
+                  child: Image.network(
+                    unsplashUrl(_journeyHeroImg, w: 600, h: 240),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomLeft,
+                        end: Alignment.topRight,
+                        colors: [
+                          Colors.black.withAlpha(0xCC),
+                          Colors.black.withAlpha(0x59),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 Positioned(
                   left: 12,
                   bottom: 8,
