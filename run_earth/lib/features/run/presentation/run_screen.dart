@@ -270,6 +270,30 @@ class _Result extends StatelessWidget {
           Text('기록 탭에서 방금 러닝을 확인할 수 있어요.',
               style: AppTextStyles.sans(
                   fontSize: 11, color: AppColors.mutedForeground)),
+          const SizedBox(height: 20),
+          // 완료 → prerun 으로 초기화(다시 달리기 가능). 상단 X 와 동일 동작.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF00E87A), Color(0xFF00C060)]),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: onClose,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Center(
+                    child: Text('완료',
+                        style: AppTextStyles.display(
+                            fontSize: 16, color: Colors.black)),
+                  ),
+                ),
+              ),
+            ),
+          ),
           ],
         ),
       ),
