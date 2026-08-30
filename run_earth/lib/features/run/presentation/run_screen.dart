@@ -225,9 +225,10 @@ class _Result extends StatelessWidget {
     final hasKcal = state.kcal > 0;
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Align(
             alignment: Alignment.topRight,
             child: IconButton(
@@ -269,7 +270,8 @@ class _Result extends StatelessWidget {
           Text('기록 탭에서 방금 러닝을 확인할 수 있어요.',
               style: AppTextStyles.sans(
                   fontSize: 11, color: AppColors.mutedForeground)),
-        ],
+          ],
+        ),
       ),
     );
   }
