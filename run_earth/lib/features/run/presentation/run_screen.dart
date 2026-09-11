@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,6 +9,7 @@ import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/sync/run_sync_service.dart';
 import '../data/run_tracker.dart';
 import 'route_image_renderer.dart';
 import 'route_painter.dart';
@@ -34,6 +37,8 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     final coverUrl = await renderRouteCover(route);
     final run = tracker.buildRun(coverImageUrl: coverUrl);
     await ref.read(appDatabaseProvider).upsertRun(run);
+    // 저장 즉시 업로드 시도. 오프라인이면 대기 상태로 남아 이후 자동 재시도된다.
+    unawaited(ref.read(runSyncServiceProvider).syncNow());
   }
 
   @override

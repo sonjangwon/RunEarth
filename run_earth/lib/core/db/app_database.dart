@@ -39,6 +39,13 @@ class Runs extends Table {
   /// 추적된 GPS 경로. `[{"lat":..,"lng":..}, ...]` JSON 문자열로 저장.
   TextColumn get route => text().nullable()();
 
+  /// 서버 업로드 완료 시각. null 이면 아직 안 올라간 것 = 동기화 대기.
+  ///
+  /// offline-handling.md 4 의 별도 `SyncQueueItem` 테이블 대신 이 플래그로
+  /// 대기 목록을 표현한다(2026-09-12 결정) — 지금 올릴 종류가 러닝 하나뿐이라
+  /// 큐 테이블은 같은 데이터를 두 곳에 두는 비용만 생긴다.
+  DateTimeColumn get syncedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -49,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +65,13 @@ class AppDatabase extends _$AppDatabase {
           // v1 → v2: 추적 경로(route) 컬럼 추가.
           if (from < 2) {
             await m.addColumn(runs, runs.route);
+          }
+          // v2 → v3: 동기화 플래그 추가 + 개발용 샘플 기록 제거.
+          // 서버 동기화를 켜기 전에 가짜 데이터를 올리지 않기 위함(2026-09-12).
+          // 실제 러닝으로 저장된 기록('run_*')은 건드리지 않는다.
+          if (from < 3) {
+            await m.addColumn(runs, runs.syncedAt);
+            await (delete(runs)..where((t) => t.id.like('seed-%'))).go();
           }
         },
       );
@@ -80,6 +94,23 @@ class AppDatabase extends _$AppDatabase {
   /// 기록 저장(신규/갱신). id 기준 upsert.
   Future<void> upsertRun(Run run) =>
       into(runs).insertOnConflictUpdate(run.toCompanion());
+
+  /// 아직 서버에 올리지 못한 기록 (오래된 것부터).
+  Future<List<Run>> getUnsyncedRuns() async {
+    final rows = await (select(runs)
+          ..where((t) => t.syncedAt.isNull())
+          ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
+  /// 업로드 성공 표시.
+  ///
+  /// 로컬 데이터는 지우지 않는다(2026-09-12 결정) — 로컬이 1차 진실 소스이고
+  /// 기록 탭은 오프라인에서도 전부 보여야 한다(offline-handling.md 2 케이스 C).
+  Future<void> markSynced(String id) =>
+      (update(runs)..where((t) => t.id.equals(id)))
+          .write(RunsCompanion(syncedAt: Value(DateTime.now())));
 }
 
 LazyDatabase _openConnection() {

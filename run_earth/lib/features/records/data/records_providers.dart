@@ -3,22 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/run.dart';
-import 'records_sample_data.dart';
-
-/// 로컬 DB 가 비어 있으면 샘플 기록을 1회 심는다. (개발용)
-final _seedRunsProvider = FutureProvider<void>((ref) async {
-  final db = ref.watch(appDatabaseProvider);
-  final existing = await db.getAllRuns();
-  if (existing.isEmpty) {
-    for (final run in sampleRuns) {
-      await db.upsertRun(run);
-    }
-  }
-});
 
 /// 로컬 DB 의 전체 기록을 실시간 관찰한다.
+///
+/// 개발용 샘플 시드는 제거했다(2026-09-12) — 서버 동기화가 켜지면서
+/// 가짜 기록이 업로드되면 안 되기 때문. 기존 샘플은 DB 마이그레이션 v3 에서 삭제된다.
 final runsStreamProvider = StreamProvider<List<Run>>((ref) {
-  ref.watch(_seedRunsProvider); // 최초 진입 시 시드 보장
   return ref.watch(appDatabaseProvider).watchAllRuns();
 });
 

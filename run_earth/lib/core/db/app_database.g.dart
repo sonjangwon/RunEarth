@@ -172,6 +172,17 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -191,6 +202,7 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
     gpsVerified,
     source,
     route,
+    syncedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -312,6 +324,12 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
         route.isAcceptableOrUnknown(data['route']!, _routeMeta),
       );
     }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -395,6 +413,10 @@ class $RunsTable extends Runs with TableInfo<$RunsTable, RunRow> {
         DriftSqlType.string,
         data['${effectivePrefix}route'],
       ),
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
     );
   }
 
@@ -431,6 +453,13 @@ class RunRow extends DataClass implements Insertable<RunRow> {
 
   /// 추적된 GPS 경로. `[{"lat":..,"lng":..}, ...]` JSON 문자열로 저장.
   final String? route;
+
+  /// 서버 업로드 완료 시각. null 이면 아직 안 올라간 것 = 동기화 대기.
+  ///
+  /// offline-handling.md 4 의 별도 `SyncQueueItem` 테이블 대신 이 플래그로
+  /// 대기 목록을 표현한다(2026-09-12 결정) — 지금 올릴 종류가 러닝 하나뿐이라
+  /// 큐 테이블은 같은 데이터를 두 곳에 두는 비용만 생긴다.
+  final DateTime? syncedAt;
   const RunRow({
     required this.id,
     required this.date,
@@ -449,6 +478,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     this.gpsVerified,
     required this.source,
     this.route,
+    this.syncedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -488,6 +518,9 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     if (!nullToAbsent || route != null) {
       map['route'] = Variable<String>(route);
     }
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
     return map;
   }
 
@@ -520,6 +553,9 @@ class RunRow extends DataClass implements Insertable<RunRow> {
       route: route == null && nullToAbsent
           ? const Value.absent()
           : Value(route),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
     );
   }
 
@@ -554,6 +590,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
         serializer.fromJson<int>(json['source']),
       ),
       route: serializer.fromJson<String?>(json['route']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
     );
   }
   @override
@@ -581,6 +618,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
         $RunsTable.$convertersource.toJson(source),
       ),
       'route': serializer.toJson<String?>(route),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
     };
   }
 
@@ -602,6 +640,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     Value<bool?> gpsVerified = const Value.absent(),
     RunSource? source,
     Value<String?> route = const Value.absent(),
+    Value<DateTime?> syncedAt = const Value.absent(),
   }) => RunRow(
     id: id ?? this.id,
     date: date ?? this.date,
@@ -626,6 +665,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     gpsVerified: gpsVerified.present ? gpsVerified.value : this.gpsVerified,
     source: source ?? this.source,
     route: route.present ? route.value : this.route,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
   );
   RunRow copyWithCompanion(RunsCompanion data) {
     return RunRow(
@@ -656,6 +696,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           : this.gpsVerified,
       source: data.source.present ? data.source.value : this.source,
       route: data.route.present ? data.route.value : this.route,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
     );
   }
 
@@ -678,7 +719,8 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           ..write('marathonCourseId: $marathonCourseId, ')
           ..write('gpsVerified: $gpsVerified, ')
           ..write('source: $source, ')
-          ..write('route: $route')
+          ..write('route: $route, ')
+          ..write('syncedAt: $syncedAt')
           ..write(')'))
         .toString();
   }
@@ -702,6 +744,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
     gpsVerified,
     source,
     route,
+    syncedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -723,7 +766,8 @@ class RunRow extends DataClass implements Insertable<RunRow> {
           other.marathonCourseId == this.marathonCourseId &&
           other.gpsVerified == this.gpsVerified &&
           other.source == this.source &&
-          other.route == this.route);
+          other.route == this.route &&
+          other.syncedAt == this.syncedAt);
 }
 
 class RunsCompanion extends UpdateCompanion<RunRow> {
@@ -744,6 +788,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
   final Value<bool?> gpsVerified;
   final Value<RunSource> source;
   final Value<String?> route;
+  final Value<DateTime?> syncedAt;
   final Value<int> rowid;
   const RunsCompanion({
     this.id = const Value.absent(),
@@ -763,6 +808,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     this.gpsVerified = const Value.absent(),
     this.source = const Value.absent(),
     this.route = const Value.absent(),
+    this.syncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RunsCompanion.insert({
@@ -783,6 +829,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     this.gpsVerified = const Value.absent(),
     required RunSource source,
     this.route = const Value.absent(),
+    this.syncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        date = Value(date),
@@ -814,6 +861,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     Expression<bool>? gpsVerified,
     Expression<int>? source,
     Expression<String>? route,
+    Expression<DateTime>? syncedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -835,6 +883,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
       if (gpsVerified != null) 'gps_verified': gpsVerified,
       if (source != null) 'source': source,
       if (route != null) 'route': route,
+      if (syncedAt != null) 'synced_at': syncedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -857,6 +906,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     Value<bool?>? gpsVerified,
     Value<RunSource>? source,
     Value<String?>? route,
+    Value<DateTime?>? syncedAt,
     Value<int>? rowid,
   }) {
     return RunsCompanion(
@@ -877,6 +927,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
       gpsVerified: gpsVerified ?? this.gpsVerified,
       source: source ?? this.source,
       route: route ?? this.route,
+      syncedAt: syncedAt ?? this.syncedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -941,6 +992,9 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
     if (route.present) {
       map['route'] = Variable<String>(route.value);
     }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -967,6 +1021,7 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
           ..write('gpsVerified: $gpsVerified, ')
           ..write('source: $source, ')
           ..write('route: $route, ')
+          ..write('syncedAt: $syncedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1003,6 +1058,7 @@ typedef $$RunsTableCreateCompanionBuilder =
       Value<bool?> gpsVerified,
       required RunSource source,
       Value<String?> route,
+      Value<DateTime?> syncedAt,
       Value<int> rowid,
     });
 typedef $$RunsTableUpdateCompanionBuilder =
@@ -1024,6 +1080,7 @@ typedef $$RunsTableUpdateCompanionBuilder =
       Value<bool?> gpsVerified,
       Value<RunSource> source,
       Value<String?> route,
+      Value<DateTime?> syncedAt,
       Value<int> rowid,
     });
 
@@ -1122,6 +1179,11 @@ class $$RunsTableFilterComposer extends Composer<_$AppDatabase, $RunsTable> {
     column: $table.route,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$RunsTableOrderingComposer extends Composer<_$AppDatabase, $RunsTable> {
@@ -1216,6 +1278,11 @@ class $$RunsTableOrderingComposer extends Composer<_$AppDatabase, $RunsTable> {
     column: $table.route,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RunsTableAnnotationComposer
@@ -1288,6 +1355,9 @@ class $$RunsTableAnnotationComposer
 
   GeneratedColumn<String> get route =>
       $composableBuilder(column: $table.route, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
 }
 
 class $$RunsTableTableManager
@@ -1335,6 +1405,7 @@ class $$RunsTableTableManager
                 Value<bool?> gpsVerified = const Value.absent(),
                 Value<RunSource> source = const Value.absent(),
                 Value<String?> route = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RunsCompanion(
                 id: id,
@@ -1354,6 +1425,7 @@ class $$RunsTableTableManager
                 gpsVerified: gpsVerified,
                 source: source,
                 route: route,
+                syncedAt: syncedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1375,6 +1447,7 @@ class $$RunsTableTableManager
                 Value<bool?> gpsVerified = const Value.absent(),
                 required RunSource source,
                 Value<String?> route = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RunsCompanion.insert(
                 id: id,
@@ -1394,6 +1467,7 @@ class $$RunsTableTableManager
                 gpsVerified: gpsVerified,
                 source: source,
                 route: route,
+                syncedAt: syncedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

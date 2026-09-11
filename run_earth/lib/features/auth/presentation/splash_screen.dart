@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/supabase/supabase_config.dart';
+import '../../../services/sync/run_sync_service.dart';
 import '../data/auth_config.dart';
 import '../data/auth_providers.dart';
 import '../data/user_repository.dart';
@@ -47,6 +50,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     await Future.wait([Future<void>.delayed(_minSplash), ensureRow]);
     if (!mounted) return;
+
+    // 밀린 기록 업로드 시작. 결과를 기다리지 않는다(홈 진입을 막지 않기 위해).
+    if (loggedIn) unawaited(ref.read(runSyncServiceProvider).syncNow());
 
     // 게이트가 켜져 있고 세션이 없으면 로그인, 그 외엔 홈.
     context.go(gate && !loggedIn ? '/login' : '/home');
