@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/models/app_user.dart';
 import '../../../services/supabase/supabase_config.dart';
 import 'auth_config.dart';
+import 'user_repository.dart';
 
 /// Supabase 인증 상태 스트림 (로그인/로그아웃/토큰 자동갱신 이벤트).
 /// 라우터 세션 가드의 갱신 트리거로도 쓰인다.
@@ -19,8 +21,9 @@ Session? currentSession() => Supabase.instance.client.auth.currentSession;
 /// 흐름: 네이티브 google_sign_in(v7) 으로 idToken 획득 →
 /// `supabase.auth.signInWithIdToken` 으로 Supabase 세션 발급.
 class AuthService {
-  AuthService(this._client);
+  AuthService(this._client, this._users);
   final SupabaseClient _client;
+  final UserRepository _users;
 
   bool _gsiInitialized = false;
 
@@ -49,6 +52,12 @@ class AuthService {
       provider: OAuthProvider.google,
       idToken: idToken,
     );
+
+    // 최초 로그인이면 서버 users 행 생성. 오프라인 등으로 실패해도 로그인
+    // 자체는 성공시킨다(스플래시에서 다음 실행 때 다시 시도).
+    try {
+      await _users.ensureUserRow();
+    } catch (_) {}
   }
 
   Future<void> signOut() async {
@@ -58,5 +67,15 @@ class AuthService {
 }
 
 final authServiceProvider = Provider<AuthService>(
-  (ref) => AuthService(ref.watch(supabaseClientProvider)),
+  (ref) => AuthService(
+    ref.watch(supabaseClientProvider),
+    ref.watch(userRepositoryProvider),
+  ),
 );
+
+/// 현재 로그인 유저(서버 `users` 행). 세션이 없으면 null.
+/// 로그인/로그아웃 이벤트마다 자동으로 다시 조회한다.
+final currentAppUserProvider = FutureProvider<AppUser?>((ref) async {
+  ref.watch(authStateChangesProvider);
+  return ref.watch(userRepositoryProvider).loadCurrentUser();
+});

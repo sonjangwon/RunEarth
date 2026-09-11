@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/supabase/supabase_config.dart';
 import '../data/auth_config.dart';
 import '../data/auth_providers.dart';
+import '../data/user_repository.dart';
 
 /// 스플래시 — 앱 실행 직후 브랜드 노출 + 세션 체크(auth-onboarding.md §3).
 ///
@@ -30,12 +31,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _boot() async {
-    await Future<void>.delayed(_minSplash);
+    final gate = AuthConfig.gateEnabled && SupabaseConfig.isConfigured;
+    final loggedIn = currentSession() != null;
+
+    // 이미 세션이 있는 유저(이 기능 도입 전에 로그인해둔 경우 포함)도 서버
+    // users 행을 갖도록 보장한다. 최소 노출 시간과 병렬로 돌리고, 오프라인
+    // 이면 조용히 넘어간다(다음 실행 때 재시도) — 앱 진입을 막지 않는다.
+    final ensureRow = loggedIn && SupabaseConfig.isConfigured
+        ? ref
+            .read(userRepositoryProvider)
+            .ensureUserRow()
+            .timeout(const Duration(seconds: 5))
+            .catchError((Object _) {})
+        : Future<void>.value();
+
+    await Future.wait([Future<void>.delayed(_minSplash), ensureRow]);
     if (!mounted) return;
 
     // 게이트가 켜져 있고 세션이 없으면 로그인, 그 외엔 홈.
-    final gate = AuthConfig.gateEnabled && SupabaseConfig.isConfigured;
-    final loggedIn = currentSession() != null;
     context.go(gate && !loggedIn ? '/login' : '/home');
   }
 

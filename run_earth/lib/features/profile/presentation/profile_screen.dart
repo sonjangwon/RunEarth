@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/app_badge.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_providers.dart';
+import '../../auth/data/user_repository.dart';
 import '../data/profile_sample_data.dart';
 
 /// 프로필 탭 — 유저·통계·배지 컬렉션·설정.
@@ -32,29 +35,43 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _UserCard extends StatelessWidget {
+class _UserCard extends ConsumerWidget {
   const _UserCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentAppUserProvider).valueOrNull;
+    final name = user?.name ?? sessionDisplayName();
+    final avatarUrl = user?.avatar ?? '';
     return Row(
       children: [
         Container(
           width: 56,
           height: 56,
           alignment: Alignment.center,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.muted,
             border: Border.all(color: AppColors.border),
           ),
-          child: const Text(profileAvatar, style: TextStyle(fontSize: 26)),
+          child: avatarUrl.isEmpty
+              ? const Text(profileAvatar, style: TextStyle(fontSize: 26))
+              : Image.network(
+                  avatarUrl,
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  // 소셜 프로필 URL 은 만료될 수 있다 → 이모지로 조용히 폴백.
+                  errorBuilder: (_, _, _) =>
+                      const Text(profileAvatar, style: TextStyle(fontSize: 26)),
+                ),
         ),
         const SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(profileUserName, style: AppTextStyles.display(fontSize: 24)),
+            Text(name, style: AppTextStyles.display(fontSize: 24)),
             Text('Run Earth',
                 style: AppTextStyles.mono(
                     fontSize: 11, color: AppColors.mutedForeground)),

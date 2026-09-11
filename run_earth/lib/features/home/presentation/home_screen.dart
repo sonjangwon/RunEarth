@@ -5,10 +5,9 @@ import '../../../core/models/streak_day.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/util/images.dart';
+import '../../auth/data/auth_providers.dart';
+import '../../auth/data/user_repository.dart';
 import '../data/home_providers.dart';
-
-// 사용자 이름은 인증/프로필 단위에서 실데이터로 교체된다(아직 미구현).
-const _userName = '이민준';
 
 // 여정 히어로 배경 (개발용 임시 Unsplash). journey.md 는 "다음 목적지 도시"별
 // 이미지를 규정하나 도시별 에셋이 [미확정] → 우선 단일 임시 이미지.
@@ -58,9 +57,13 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _Greeting extends StatelessWidget {
+class _Greeting extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 서버 조회가 끝나기 전에는 세션 메타데이터의 이름을 먼저 보여준다.
+    final name =
+        ref.watch(currentAppUserProvider).valueOrNull?.name ??
+            sessionDisplayName();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -70,7 +73,7 @@ class _Greeting extends StatelessWidget {
         const SizedBox(height: 2),
         Row(
           children: [
-            Text('$_userName님 ',
+            Text('$name님 ',
                 style: AppTextStyles.display(fontSize: 24, letterSpacing: 0.5)),
             const Text('🔥', style: TextStyle(fontSize: 20)),
           ],
