@@ -88,7 +88,11 @@ AppUser sessionUser(User user) => AppUser(
     );
 
 /// 서버 조회를 기다리지 않고 즉시 얻는 표시 이름(첫 프레임 깜빡임 방지).
+///
+/// Supabase 미초기화 시에도 던지지 않고 기본값을 준다(홈·프로필이 이 값을
+/// 폴백으로 쓴다).
 String sessionDisplayName() {
+  if (!SupabaseConfig.isConfigured) return '러너';
   final user = Supabase.instance.client.auth.currentUser;
   return user == null ? '러너' : _nameOf(user);
 }

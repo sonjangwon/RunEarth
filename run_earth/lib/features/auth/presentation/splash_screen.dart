@@ -34,6 +34,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _boot() async {
+    // 어떤 이유로 예외가 나더라도 라우팅만은 반드시 실행한다.
+    // 스플래시는 사용자가 빠져나올 수단이 없는 화면이라, 여기서 예외가
+    // 그대로 새면 앱이 스피너인 채로 영구히 갇힌다(2026-09-13).
+    try {
+      await _bootInner();
+    } catch (e) {
+      debugPrint('[splash] 부팅 실패 — 홈으로 진행: $e');
+      if (mounted) context.go('/home');
+    }
+  }
+
+  Future<void> _bootInner() async {
     final gate = AuthConfig.gateEnabled && SupabaseConfig.isConfigured;
     final loggedIn = currentSession() != null;
 

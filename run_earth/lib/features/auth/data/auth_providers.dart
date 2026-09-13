@@ -9,12 +9,22 @@ import 'user_repository.dart';
 
 /// Supabase 인증 상태 스트림 (로그인/로그아웃/토큰 자동갱신 이벤트).
 /// 라우터 세션 가드의 갱신 트리거로도 쓰인다.
+///
+/// env.json 미주입 등으로 Supabase 가 초기화되지 않았으면 빈 스트림 —
+/// `Supabase.instance` 는 초기화 전에 접근하면 단언(assert)으로 던진다.
 final authStateChangesProvider = StreamProvider<AuthState>((ref) {
+  if (!SupabaseConfig.isConfigured) return const Stream<AuthState>.empty();
   return Supabase.instance.client.auth.onAuthStateChange;
 });
 
 /// 현재 로그인 세션 (없으면 null). 동기 조회.
-Session? currentSession() => Supabase.instance.client.auth.currentSession;
+///
+/// Supabase 미초기화 시 던지지 않고 null 을 준다 — 이 함수는 스플래시 부팅
+/// 경로에서 불리므로, 여기서 예외가 나면 앱이 스플래시에 갇힌다.
+Session? currentSession() {
+  if (!SupabaseConfig.isConfigured) return null;
+  return Supabase.instance.client.auth.currentSession;
+}
 
 /// 구글 로그인 / 로그아웃 액션.
 ///
