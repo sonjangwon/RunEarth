@@ -6,7 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/offline_banner.dart';
 import 'services/supabase/supabase_config.dart';
+import 'services/sync/run_sync_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,16 +32,23 @@ Future<void> main() async {
   runApp(const ProviderScope(child: RunEarthApp()));
 }
 
-class RunEarthApp extends StatelessWidget {
+class RunEarthApp extends ConsumerWidget {
   const RunEarthApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 앱 전역 배선: 연결이 돌아오는 순간 밀린 기록 업로드를 재시도한다.
+    ref.watch(syncOnReconnectProvider);
+
     return MaterialApp.router(
       title: 'Run Earth',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       routerConfig: appRouter,
+      // 오프라인 배너는 라우터 바깥에서 감싼다 — shell(5탭) 밖의 스플래시·
+      // 로그인 화면까지 덮기 위함(offline-handling.md 3 "모든 화면 공통").
+      builder: (context, child) =>
+          OfflineBanner(child: child ?? const SizedBox.shrink()),
     );
   }
 }

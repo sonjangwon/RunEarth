@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/db/app_database.dart';
 import '../../core/models/run.dart';
+import '../connectivity/connectivity_providers.dart';
 import '../supabase/supabase_config.dart';
 
 /// 로컬 기록을 서버 `public.runs` 로 올리는 동기화.
@@ -129,4 +130,24 @@ final runSyncServiceProvider = Provider<RunSyncService>((ref) {
   );
   ref.onDispose(service.dispose);
   return service;
+});
+
+/// 오프라인 → 온라인으로 **바뀌는 순간에만** 밀린 업로드를 시도한다.
+///
+/// 기존 트리거는 앱 시작·러닝 저장 직후 둘뿐이라, 앱을 켜둔 채로 연결이
+/// 돌아오면 재시도 타이머(최대 5분)를 기다려야 했다.
+/// 정본: offline-handling.md 3 — "재연결되면 대기 중인 동기화 큐가 있으면
+/// 자동 처리 시작".
+///
+/// 앱 루트(main.dart)에서 watch 해 앱이 살아있는 동안 유지한다.
+final syncOnReconnectProvider = Provider<void>((ref) {
+  ref.listen<AsyncValue<bool>>(isOnlineProvider, (prev, next) {
+    // 온라인 상태가 이어지는 동안 반복 호출되지 않게 '전환'만 본다.
+    final wasOffline = prev?.valueOrNull == false;
+    final isOnline = next.valueOrNull == true;
+    if (wasOffline && isOnline) {
+      debugPrint('[sync] 재연결 감지 — 밀린 업로드 시도');
+      unawaited(ref.read(runSyncServiceProvider).syncNow());
+    }
+  });
 });
