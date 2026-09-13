@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
+import '../../home/data/home_providers.dart';
 import '../data/profile_sample_data.dart';
 
 /// 프로필 탭 — 유저·통계·배지 컬렉션·설정.
@@ -82,18 +83,20 @@ class _UserCard extends ConsumerWidget {
   }
 }
 
-class _StatsRow extends StatelessWidget {
+class _StatsRow extends ConsumerWidget {
   const _StatsRow();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 홈과 같은 집계를 구독한다 — 두 화면의 숫자가 어긋나지 않게.
+    final stats = ref.watch(homeStatsProvider);
     return Row(
       children: [
-        Expanded(child: _stat('총 거리', '$profileTotalKm', 'km')),
+        Expanded(child: _stat('총 거리', stats.totalKm.toStringAsFixed(1), 'km')),
         const SizedBox(width: 8),
-        Expanded(child: _stat('총 시간', '$profileTotalHours', 'h')),
+        Expanded(child: _stat('총 시간', stats.durationLabel, '')),
         const SizedBox(width: 8),
-        Expanded(child: _stat('총 횟수', '$profileTotalCount', '회')),
+        Expanded(child: _stat('총 횟수', '${stats.count}', '회')),
       ],
     );
   }
@@ -112,10 +115,11 @@ class _StatsRow extends StatelessWidget {
                 text: value,
                 style: AppTextStyles.display(fontSize: 20),
                 children: [
-                  TextSpan(
-                      text: ' $unit',
-                      style: AppTextStyles.sans(
-                          fontSize: 9, color: AppColors.mutedForeground)),
+                  if (unit.isNotEmpty)
+                    TextSpan(
+                        text: ' $unit',
+                        style: AppTextStyles.sans(
+                            fontSize: 9, color: AppColors.mutedForeground)),
                 ],
               ),
             ),

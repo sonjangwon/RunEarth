@@ -1,14 +1,12 @@
 import '../../../core/models/app_badge.dart';
 import '../../../core/models/enums.dart';
 
-/// 임시 샘플 (Figma App.tsx USER / BADGES 기반).
-/// 통계는 전체 기록 합산(향후 로컬 DB 집계로 대체), 배지는 서버/DB 지급으로 대체.
+/// 임시 샘플 (Figma App.tsx BADGES 기반).
+/// 통계는 로컬 DB 집계(`homeStatsProvider`)로 대체 완료.
+/// 배지는 아직 샘플 — 서버/DB 지급으로 대체 예정(badges.md).
 
-const profileUserName = '이민준';
+/// 아바타 URL 이 없거나 만료됐을 때의 폴백 이모지.
 const profileAvatar = '🏃';
-const profileTotalKm = 247.3;
-const profileTotalHours = 98;
-const profileTotalCount = 38;
 const appVersion = 'v1.12.2';
 
 const sampleBadges = <AppBadge>[

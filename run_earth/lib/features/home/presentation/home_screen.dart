@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/streak_day.dart';
 import '../../../core/theme/app_colors.dart';
@@ -485,7 +486,10 @@ class _StartCta extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: () {}, // 이후 단위: 달리기 탭 이동 + 러닝 타입 '일반'
+            // 달리기 탭(shell branch 1)으로 이동. goBranch 는 탭의 스택·
+            // 스크롤 상태를 보존한다. 러닝 타입 '일반' 지정은 RunType 이
+            // 아직 고정값이라 별도 작업 단위.
+            onTap: () => StatefulNavigationShell.of(context).goBranch(1),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Row(
