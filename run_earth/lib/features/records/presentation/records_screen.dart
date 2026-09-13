@@ -5,6 +5,7 @@ import '../../../core/models/enums.dart';
 import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/sync/run_sync_service.dart';
 import '../data/records_providers.dart';
 
 /// 기록 탭 — 로컬 DB의 러닝 기록을 요약·필터·월별 그룹으로 표시.
@@ -217,13 +218,20 @@ class _MonthHeader extends StatelessWidget {
   }
 }
 
-class _RunCard extends StatelessWidget {
+class _RunCard extends ConsumerWidget {
   const _RunCard(this.run);
   final Run run;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final badge = _typeBadge(run.type);
+    // 아직 서버에 못 올린 기록인지. 판정 전(로딩)에는 붙이지 않는다 —
+    // 딱지가 잠깐 나타났다 사라지는 깜빡임을 피하기 위해.
+    final pending = ref
+            .watch(pendingSyncRunIdsProvider)
+            .valueOrNull
+            ?.contains(run.id) ??
+        false;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -260,6 +268,10 @@ class _RunCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     color: badge.color)),
           ),
+          if (pending) ...[
+            const SizedBox(width: 6),
+            const _PendingSyncChip(),
+          ],
           const Spacer(),
           // 수치
           Column(
@@ -285,6 +297,30 @@ class _RunCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// '동기화 대기' 딱지 — 로컬에만 있고 아직 서버에 올라가지 않은 기록.
+///
+/// 정본: offline-handling.md 2 케이스 B. 문서는 결과 화면(RunDetailView)을
+/// 지정하나 그 화면이 아직 없어, 기록 카드에 먼저 붙인다(2026-09-13 결정).
+/// 성취 배지가 아니라 상태 표시라 records.md 3 의 '미인정' 과 같은 무채색.
+class _PendingSyncChip extends StatelessWidget {
+  const _PendingSyncChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.muted,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text('동기화 대기',
+          style: AppTextStyles.sans(
+              fontSize: 11, color: AppColors.mutedForeground)),
     );
   }
 }

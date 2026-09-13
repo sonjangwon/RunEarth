@@ -132,6 +132,15 @@ final runSyncServiceProvider = Provider<RunSyncService>((ref) {
   return service;
 });
 
+/// 아직 서버에 못 올린 기록의 id 집합.
+///
+/// 기록 카드가 '동기화 대기' 딱지를 붙일지 판단하는 데 쓴다. 기록 자체가
+/// 아니라 id 명단만 따로 흘려보내는 이유는 `watchUnsyncedIds` 주석 참고.
+/// 화면(features) 이 아니라 서비스 계층에 두어 기록 탭 밖에서도 쓸 수 있게 한다.
+final pendingSyncRunIdsProvider = StreamProvider<Set<String>>((ref) {
+  return ref.watch(appDatabaseProvider).watchUnsyncedIds();
+});
+
 /// 오프라인 → 온라인으로 **바뀌는 순간에만** 밀린 업로드를 시도한다.
 ///
 /// 기존 트리거는 앱 시작·러닝 저장 직후 둘뿐이라, 앱을 켜둔 채로 연결이

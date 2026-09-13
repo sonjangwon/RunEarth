@@ -104,6 +104,19 @@ class AppDatabase extends _$AppDatabase {
     return rows.map((r) => r.toModel()).toList();
   }
 
+  /// 아직 서버에 못 올린 기록의 id 집합을 실시간 관찰.
+  ///
+  /// 기록 카드의 '동기화 대기' 표시용(offline-handling.md 2 케이스 B).
+  /// `Run` 모델에 동기화 상태를 싣지 않고 id 명단만 따로 흘려보낸다 —
+  /// 모델에 실으면 대표 이미지 수정(records.md 3)이 `upsertRun` 을 탈 때
+  /// 옛 `syncedAt` 이 함께 덮어써져, 수정본이 서버에 영영 반영되지 않는다.
+  Stream<Set<String>> watchUnsyncedIds() {
+    final q = selectOnly(runs)
+      ..addColumns([runs.id])
+      ..where(runs.syncedAt.isNull());
+    return q.watch().map((rows) => rows.map((r) => r.read(runs.id)!).toSet());
+  }
+
   /// 업로드 성공 표시.
   ///
   /// 로컬 데이터는 지우지 않는다(2026-09-12 결정) — 로컬이 1차 진실 소스이고
