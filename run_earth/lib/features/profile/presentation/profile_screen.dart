@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
 import '../../home/data/home_providers.dart';
+import '../data/badge_providers.dart';
 import '../data/profile_sample_data.dart';
 
 /// 프로필 탭 — 유저·통계·배지 컬렉션·설정.
@@ -132,12 +133,14 @@ class _StatsRow extends ConsumerWidget {
       );
 }
 
-class _BadgeCollection extends StatelessWidget {
+class _BadgeCollection extends ConsumerWidget {
   const _BadgeCollection();
 
   @override
-  Widget build(BuildContext context) {
-    final earned = sampleBadges.where((b) => b.earned).length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 누적 거리로 계산된 여정 마일스톤 배지(badges.md 3).
+    final badges = ref.watch(milestoneBadgesProvider);
+    final earned = badges.where((b) => b.earned).length;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -154,7 +157,7 @@ class _BadgeCollection extends StatelessWidget {
               Text('배지 컬렉션',
                   style: AppTextStyles.sans(
                       fontSize: 13, fontWeight: FontWeight.w600)),
-              Text('$earned / ${sampleBadges.length} 획득',
+              Text('$earned / ${badges.length} 획득',
                   style: AppTextStyles.mono(
                       fontSize: 11, color: AppColors.primary)),
             ],
@@ -166,7 +169,7 @@ class _BadgeCollection extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            children: [for (final b in sampleBadges) _BadgeTile(b)],
+            children: [for (final b in badges) _BadgeTile(b)],
           ),
         ],
       ),
