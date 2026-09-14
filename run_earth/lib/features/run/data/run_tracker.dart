@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/db/app_database.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/models/run.dart';
@@ -89,12 +91,25 @@ class RunSessionState {
   static const _noChange = Object();
 }
 
-/// GPS 추적 + 상태 머신 구동. 포그라운드 추적만 담당한다.
-/// (백그라운드 추적은 이후 단위 — run-flow.md 6, 완료조건 #1)
+/// GPS 추적 + 상태 머신 구동.
+///
+/// 화면을 꺼도 추적이 이어지도록 포그라운드 서비스로 실행하고(run-flow.md 6),
+/// 그래도 앱이 죽는 경우에 대비해 진행 중 러닝을 10초마다 로컬에 스냅샷한다.
 class RunTracker extends Notifier<RunSessionState> {
   Timer? _elapsedTimer;
   Timer? _countdownTimer;
+  Timer? _snapshotTimer;
   StreamSubscription<Position>? _posSub;
+
+  /// 현재 러닝 시작 시각. 스냅샷 저장·복원의 기준.
+  DateTime? _startedAt;
+
+  /// 진행 중 러닝 스냅샷 주기. 앱이 죽어도 이 간격만큼만 잃는다(약 30m).
+  static const _snapshotInterval = Duration(seconds: 10);
+
+  /// 이보다 오래된 스냅샷은 이어 뛰지 않고 기록으로 확정한다.
+  /// 풀코스 완주자도 넉넉히 커버하는 값(2026-09-15 결정).
+  static const _snapshotMaxAge = Duration(hours: 6);
 
   /// RESUME 직후 첫 좌표는 일시정지 중 이동분을 거리에 더하지 않도록 앵커로만 쓴다.
   bool _skipNextSegment = false;
@@ -133,8 +148,10 @@ class RunTracker extends Notifier<RunSessionState> {
       distanceKm: 0,
       route: const [],
     );
+    _startedAt = DateTime.now();
     _startElapsedTimer();
     _startLocationStream();
+    _startSnapshotTimer();
   }
 
   void _startElapsedTimer() {
@@ -234,8 +251,11 @@ class RunTracker extends Notifier<RunSessionState> {
   /// STOP → 추적 종료. 결과 화면으로 넘어간다(저장은 화면에서).
   void stop() {
     _elapsedTimer?.cancel();
+    _snapshotTimer?.cancel();
     _posSub?.cancel();
     _posSub = null;
+    // 스냅샷은 여기서 지우지 않는다. 정식 기록으로 저장된 걸 확인한 뒤
+    // [clearSnapshot] 으로 지운다 — 저장 직전에 죽어도 잃지 않도록.
     state = state.copyWith(phase: RunSessionPhase.stopped);
   }
 
@@ -247,8 +267,8 @@ class RunTracker extends Notifier<RunSessionState> {
   }
 
   /// 현재 세션을 저장용 [Run] 으로 변환. [coverImageUrl] 은 렌더된 경로 이미지 경로.
-  Run buildRun({String? coverImageUrl}) {
-    final now = DateTime.now();
+  Run buildRun({String? coverImageUrl, DateTime? at}) {
+    final now = at ?? DateTime.now();
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     final recordType = switch (state.runType) {
       RunType.normal => RecordType.normal,
@@ -275,6 +295,107 @@ class RunTracker extends Notifier<RunSessionState> {
     );
   }
 
+  // ── 진행 중 러닝 스냅샷 (run-flow.md 7) ──────────────────────
+
+  void _startSnapshotTimer() {
+    _snapshotTimer?.cancel();
+    unawaited(_saveSnapshot()); // 시작 직후 죽는 경우도 덮는다.
+    _snapshotTimer =
+        Timer.periodic(_snapshotInterval, (_) => unawaited(_saveSnapshot()));
+  }
+
+  Future<void> _saveSnapshot() async {
+    final startedAt = _startedAt;
+    if (startedAt == null) return;
+    if (state.phase != RunSessionPhase.running &&
+        state.phase != RunSessionPhase.paused) {
+      return;
+    }
+    // 스냅샷 저장 실패가 러닝을 방해해선 안 된다 — 다음 주기에 다시 시도한다.
+    try {
+      await ref.read(appDatabaseProvider).saveActiveRun(
+            startedAt: startedAt,
+            elapsed: state.elapsed,
+            distanceKm: state.distanceKm,
+            route: state.route,
+            runType: state.runType,
+            paused: state.isPaused,
+          );
+    } catch (e) {
+      debugPrint('[run] 스냅샷 저장 실패: $e');
+    }
+  }
+
+  /// 정식 기록으로 저장된 뒤 스냅샷을 지운다. 저장을 확인한 쪽에서 호출한다.
+  Future<void> clearSnapshot() async {
+    _startedAt = null;
+    try {
+      await ref.read(appDatabaseProvider).clearActiveRun();
+    } catch (e) {
+      debugPrint('[run] 스냅샷 삭제 실패: $e');
+    }
+  }
+
+  /// 앱 시작 시 호출. 남아 있는 러닝을 되살렸으면 true.
+  ///
+  /// 사용자에게 묻지 않고 조용히 이어붙인다(2026-09-15 결정) — 포그라운드
+  /// 서비스가 붙은 뒤로는 드물게만 발생하는 경로라, 확인 팝업은 정상 동작을
+  /// 비정상처럼 보이게 만든다.
+  Future<bool> restoreIfAny() async {
+    final ActiveRunRow? row;
+    try {
+      row = await ref.read(appDatabaseProvider).loadActiveRun();
+    } catch (e) {
+      debugPrint('[run] 스냅샷 조회 실패: $e');
+      return false;
+    }
+    if (row == null) return false;
+
+    if (DateTime.now().difference(row.updatedAt) > _snapshotMaxAge) {
+      await _finalizeExpired(row);
+      return false;
+    }
+
+    state = RunSessionState(
+      phase: row.paused ? RunSessionPhase.paused : RunSessionPhase.running,
+      runType: row.runType,
+      elapsed: Duration(seconds: row.elapsedSeconds),
+      distanceKm: row.distanceKm,
+      route: row.routePoints,
+    );
+    _startedAt = row.startedAt;
+    // 앱이 죽어 있는 동안 이동했더라도 그 구간은 거리에 더하지 않는다.
+    // 추적하지 못한 이동이라 경로에도 없고, 더하면 페이스만 왜곡된다.
+    _skipNextSegment = true;
+
+    _startElapsedTimer();
+    _startSnapshotTimer();
+    if (await _ensurePermission()) _startLocationStream();
+    return true;
+  }
+
+  /// 너무 오래된 스냅샷을 기록으로 확정하고 지운다.
+  ///
+  /// 커버 이미지는 만들지 않는다 — `route` 좌표만 있으면 어디서든 다시 그릴
+  /// 수 있고(2026-09-11 결정), 렌더는 화면 계층의 일이다.
+  Future<void> _finalizeExpired(ActiveRunRow row) async {
+    state = RunSessionState(
+      phase: RunSessionPhase.stopped,
+      runType: row.runType,
+      elapsed: Duration(seconds: row.elapsedSeconds),
+      distanceKm: row.distanceKm,
+      route: row.routePoints,
+    );
+    try {
+      await ref.read(appDatabaseProvider).upsertRun(buildRun(at: row.startedAt));
+      await ref.read(appDatabaseProvider).clearActiveRun();
+    } catch (e) {
+      debugPrint('[run] 만료 스냅샷 확정 실패: $e'); // 스냅샷은 남겨 다음에 재시도.
+    }
+    _startedAt = null;
+    state = RunSessionState.initial(row.runType);
+  }
+
   Future<bool> _ensurePermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       state = state.copyWith(error: '위치 서비스가 꺼져 있어요. 설정에서 켜주세요.');
@@ -295,6 +416,7 @@ class RunTracker extends Notifier<RunSessionState> {
   void _disposeAll() {
     _elapsedTimer?.cancel();
     _countdownTimer?.cancel();
+    _snapshotTimer?.cancel();
     _posSub?.cancel();
     _posSub = null;
   }

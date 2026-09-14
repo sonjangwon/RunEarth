@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/supabase/supabase_config.dart';
 import '../../../services/sync/run_sync_service.dart';
+import '../../run/data/run_tracker.dart';
 import '../data/auth_config.dart';
 import '../data/auth_providers.dart';
 import '../data/user_repository.dart';
@@ -66,8 +67,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // 밀린 기록 업로드 시작. 결과를 기다리지 않는다(홈 진입을 막지 않기 위해).
     if (loggedIn) unawaited(ref.read(runSyncServiceProvider).syncNow());
 
-    // 게이트가 켜져 있고 세션이 없으면 로그인, 그 외엔 홈.
-    context.go(gate && !loggedIn ? '/login' : '/home');
+    // 게이트가 켜져 있고 세션이 없으면 로그인.
+    if (gate && !loggedIn) {
+      context.go('/login');
+      return;
+    }
+
+    // 앱이 죽어 중단됐던 러닝이 있으면 되살려 달리기 탭으로 바로 보낸다.
+    // 실패해도, 응답이 없어도 홈 진입은 막지 않는다 — 스플래시는 빠져나올
+    // 수단이 없는 화면이다(2026-09-13). 행 하나 읽는 일이라 3초면 넉넉하다.
+    var restored = false;
+    try {
+      restored = await ref
+          .read(runTrackerProvider.notifier)
+          .restoreIfAny()
+          .timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint('[splash] 러닝 복원 실패 — 홈으로 진행: $e');
+    }
+    if (!mounted) return;
+    context.go(restored ? '/run' : '/home');
   }
 
   @override

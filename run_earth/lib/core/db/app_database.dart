@@ -50,13 +50,49 @@ class Runs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// 진행 중인 러닝의 스냅샷 (항상 0개 또는 1개 행).
+///
+/// STOP 확인을 눌러야만 [Runs] 에 저장되는 구조라, 그 전에 앱 프로세스가
+/// 죽으면 러닝이 통째로 사라졌다(2026-09-13 발견). 추적 중 10초마다 이 행을
+/// 덮어써서, 앱이 죽어도 다음 실행 때 이어서 뛸 수 있게 한다.
+///
+/// 좌표를 한 행씩 쌓지 않고 통째로 덮어쓰는 이유(2026-09-15 결정): 쓰기량은
+/// append 가 유리하지만(풀코스 기준 ~750KB vs ~200MB) 절대량이 둘 다 문제되지
+/// 않는 수준이고, 일시정지 구간을 뺀 거리는 좌표만으로 복원할 수 없어 어차피
+/// 세션 메타를 따로 관리해야 한다. 유실을 막으려는 기능이 복잡해 버그가 나면
+/// 본말전도다. run-flow.md 7.
+@DataClassName('ActiveRunRow')
+class ActiveRuns extends Table {
+  /// 항상 0. 단일 행임을 스키마로 강제한다.
+  IntColumn get id => integer()();
+
+  DateTimeColumn get startedAt => dateTime()();
+
+  /// 마지막 스냅샷 시각. 너무 오래됐으면 복원하지 않고 기록으로 확정한다.
+  DateTimeColumn get updatedAt => dateTime()();
+
+  IntColumn get elapsedSeconds => integer()();
+  RealColumn get distanceKm => real()();
+
+  /// [Runs.route] 와 같은 형식의 JSON 문자열.
+  TextColumn get route => text().nullable()();
+
+  IntColumn get runType => intEnum<RunType>()();
+
+  /// 죽은 시점이 일시정지 중이었으면 일시정지 상태로 되살린다.
+  BoolColumn get paused => boolean()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// 앱 로컬 데이터베이스 (drift).
-@DriftDatabase(tables: [Runs])
+@DriftDatabase(tables: [Runs, ActiveRuns])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,6 +108,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             await m.addColumn(runs, runs.syncedAt);
             await (delete(runs)..where((t) => t.id.like('seed-%'))).go();
+          }
+          // v3 → v4: 진행 중 러닝 스냅샷 테이블 추가.
+          if (from < 4) {
+            await m.createTable(activeRuns);
           }
         },
       );
@@ -124,6 +164,38 @@ class AppDatabase extends _$AppDatabase {
   Future<void> markSynced(String id) =>
       (update(runs)..where((t) => t.id.equals(id)))
           .write(RunsCompanion(syncedAt: Value(DateTime.now())));
+
+  // ── 진행 중 러닝 스냅샷 ──────────────────────────────────────
+
+  /// 진행 중 러닝 스냅샷 저장(덮어쓰기). 항상 id=0 한 행만 유지한다.
+  Future<void> saveActiveRun({
+    required DateTime startedAt,
+    required Duration elapsed,
+    required double distanceKm,
+    required List<LatLngPoint> route,
+    required RunType runType,
+    required bool paused,
+  }) =>
+      into(activeRuns).insertOnConflictUpdate(
+        ActiveRunsCompanion.insert(
+          id: const Value(0),
+          startedAt: startedAt,
+          updatedAt: DateTime.now(),
+          elapsedSeconds: elapsed.inSeconds,
+          distanceKm: distanceKm,
+          route: Value(_encodeRoute(route)),
+          runType: runType,
+          paused: paused,
+        ),
+      );
+
+  /// 저장된 스냅샷. 없으면 null.
+  Future<ActiveRunRow?> loadActiveRun() =>
+      (select(activeRuns)..where((t) => t.id.equals(0))).getSingleOrNull();
+
+  /// 스냅샷 삭제. 러닝이 정식 기록으로 확정된 뒤에만 호출한다.
+  Future<void> clearActiveRun() =>
+      (delete(activeRuns)..where((t) => t.id.equals(0))).go();
 }
 
 LazyDatabase _openConnection() {
@@ -146,6 +218,11 @@ List<LatLngPoint> _decodeRoute(String? json) {
 String? _encodeRoute(List<LatLngPoint> route) {
   if (route.isEmpty) return null;
   return jsonEncode(route.map((p) => p.toJson()).toList());
+}
+
+/// 스냅샷 행의 좌표 배열. 디코딩 헬퍼가 이 파일 안에만 있어 여기서 노출한다.
+extension ActiveRunRowMapper on ActiveRunRow {
+  List<LatLngPoint> get routePoints => _decodeRoute(route);
 }
 
 /// drift 행(RunRow) ↔ 모델(Run) 변환.

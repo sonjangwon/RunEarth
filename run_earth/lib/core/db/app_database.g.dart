@@ -1028,15 +1028,533 @@ class RunsCompanion extends UpdateCompanion<RunRow> {
   }
 }
 
+class $ActiveRunsTable extends ActiveRuns
+    with TableInfo<$ActiveRunsTable, ActiveRunRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActiveRunsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _elapsedSecondsMeta = const VerificationMeta(
+    'elapsedSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> elapsedSeconds = GeneratedColumn<int>(
+    'elapsed_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _distanceKmMeta = const VerificationMeta(
+    'distanceKm',
+  );
+  @override
+  late final GeneratedColumn<double> distanceKm = GeneratedColumn<double>(
+    'distance_km',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _routeMeta = const VerificationMeta('route');
+  @override
+  late final GeneratedColumn<String> route = GeneratedColumn<String>(
+    'route',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<RunType, int> runType =
+      GeneratedColumn<int>(
+        'run_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<RunType>($ActiveRunsTable.$converterrunType);
+  static const VerificationMeta _pausedMeta = const VerificationMeta('paused');
+  @override
+  late final GeneratedColumn<bool> paused = GeneratedColumn<bool>(
+    'paused',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("paused" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    startedAt,
+    updatedAt,
+    elapsedSeconds,
+    distanceKm,
+    route,
+    runType,
+    paused,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'active_runs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActiveRunRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('elapsed_seconds')) {
+      context.handle(
+        _elapsedSecondsMeta,
+        elapsedSeconds.isAcceptableOrUnknown(
+          data['elapsed_seconds']!,
+          _elapsedSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_elapsedSecondsMeta);
+    }
+    if (data.containsKey('distance_km')) {
+      context.handle(
+        _distanceKmMeta,
+        distanceKm.isAcceptableOrUnknown(data['distance_km']!, _distanceKmMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_distanceKmMeta);
+    }
+    if (data.containsKey('route')) {
+      context.handle(
+        _routeMeta,
+        route.isAcceptableOrUnknown(data['route']!, _routeMeta),
+      );
+    }
+    if (data.containsKey('paused')) {
+      context.handle(
+        _pausedMeta,
+        paused.isAcceptableOrUnknown(data['paused']!, _pausedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pausedMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActiveRunRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActiveRunRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      elapsedSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}elapsed_seconds'],
+      )!,
+      distanceKm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_km'],
+      )!,
+      route: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}route'],
+      ),
+      runType: $ActiveRunsTable.$converterrunType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}run_type'],
+        )!,
+      ),
+      paused: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}paused'],
+      )!,
+    );
+  }
+
+  @override
+  $ActiveRunsTable createAlias(String alias) {
+    return $ActiveRunsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<RunType, int, int> $converterrunType =
+      const EnumIndexConverter<RunType>(RunType.values);
+}
+
+class ActiveRunRow extends DataClass implements Insertable<ActiveRunRow> {
+  /// 항상 0. 단일 행임을 스키마로 강제한다.
+  final int id;
+  final DateTime startedAt;
+
+  /// 마지막 스냅샷 시각. 너무 오래됐으면 복원하지 않고 기록으로 확정한다.
+  final DateTime updatedAt;
+  final int elapsedSeconds;
+  final double distanceKm;
+
+  /// [Runs.route] 와 같은 형식의 JSON 문자열.
+  final String? route;
+  final RunType runType;
+
+  /// 죽은 시점이 일시정지 중이었으면 일시정지 상태로 되살린다.
+  final bool paused;
+  const ActiveRunRow({
+    required this.id,
+    required this.startedAt,
+    required this.updatedAt,
+    required this.elapsedSeconds,
+    required this.distanceKm,
+    this.route,
+    required this.runType,
+    required this.paused,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['elapsed_seconds'] = Variable<int>(elapsedSeconds);
+    map['distance_km'] = Variable<double>(distanceKm);
+    if (!nullToAbsent || route != null) {
+      map['route'] = Variable<String>(route);
+    }
+    {
+      map['run_type'] = Variable<int>(
+        $ActiveRunsTable.$converterrunType.toSql(runType),
+      );
+    }
+    map['paused'] = Variable<bool>(paused);
+    return map;
+  }
+
+  ActiveRunsCompanion toCompanion(bool nullToAbsent) {
+    return ActiveRunsCompanion(
+      id: Value(id),
+      startedAt: Value(startedAt),
+      updatedAt: Value(updatedAt),
+      elapsedSeconds: Value(elapsedSeconds),
+      distanceKm: Value(distanceKm),
+      route: route == null && nullToAbsent
+          ? const Value.absent()
+          : Value(route),
+      runType: Value(runType),
+      paused: Value(paused),
+    );
+  }
+
+  factory ActiveRunRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActiveRunRow(
+      id: serializer.fromJson<int>(json['id']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      elapsedSeconds: serializer.fromJson<int>(json['elapsedSeconds']),
+      distanceKm: serializer.fromJson<double>(json['distanceKm']),
+      route: serializer.fromJson<String?>(json['route']),
+      runType: $ActiveRunsTable.$converterrunType.fromJson(
+        serializer.fromJson<int>(json['runType']),
+      ),
+      paused: serializer.fromJson<bool>(json['paused']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'elapsedSeconds': serializer.toJson<int>(elapsedSeconds),
+      'distanceKm': serializer.toJson<double>(distanceKm),
+      'route': serializer.toJson<String?>(route),
+      'runType': serializer.toJson<int>(
+        $ActiveRunsTable.$converterrunType.toJson(runType),
+      ),
+      'paused': serializer.toJson<bool>(paused),
+    };
+  }
+
+  ActiveRunRow copyWith({
+    int? id,
+    DateTime? startedAt,
+    DateTime? updatedAt,
+    int? elapsedSeconds,
+    double? distanceKm,
+    Value<String?> route = const Value.absent(),
+    RunType? runType,
+    bool? paused,
+  }) => ActiveRunRow(
+    id: id ?? this.id,
+    startedAt: startedAt ?? this.startedAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+    distanceKm: distanceKm ?? this.distanceKm,
+    route: route.present ? route.value : this.route,
+    runType: runType ?? this.runType,
+    paused: paused ?? this.paused,
+  );
+  ActiveRunRow copyWithCompanion(ActiveRunsCompanion data) {
+    return ActiveRunRow(
+      id: data.id.present ? data.id.value : this.id,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      elapsedSeconds: data.elapsedSeconds.present
+          ? data.elapsedSeconds.value
+          : this.elapsedSeconds,
+      distanceKm: data.distanceKm.present
+          ? data.distanceKm.value
+          : this.distanceKm,
+      route: data.route.present ? data.route.value : this.route,
+      runType: data.runType.present ? data.runType.value : this.runType,
+      paused: data.paused.present ? data.paused.value : this.paused,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActiveRunRow(')
+          ..write('id: $id, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('elapsedSeconds: $elapsedSeconds, ')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('route: $route, ')
+          ..write('runType: $runType, ')
+          ..write('paused: $paused')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    startedAt,
+    updatedAt,
+    elapsedSeconds,
+    distanceKm,
+    route,
+    runType,
+    paused,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActiveRunRow &&
+          other.id == this.id &&
+          other.startedAt == this.startedAt &&
+          other.updatedAt == this.updatedAt &&
+          other.elapsedSeconds == this.elapsedSeconds &&
+          other.distanceKm == this.distanceKm &&
+          other.route == this.route &&
+          other.runType == this.runType &&
+          other.paused == this.paused);
+}
+
+class ActiveRunsCompanion extends UpdateCompanion<ActiveRunRow> {
+  final Value<int> id;
+  final Value<DateTime> startedAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> elapsedSeconds;
+  final Value<double> distanceKm;
+  final Value<String?> route;
+  final Value<RunType> runType;
+  final Value<bool> paused;
+  const ActiveRunsCompanion({
+    this.id = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.elapsedSeconds = const Value.absent(),
+    this.distanceKm = const Value.absent(),
+    this.route = const Value.absent(),
+    this.runType = const Value.absent(),
+    this.paused = const Value.absent(),
+  });
+  ActiveRunsCompanion.insert({
+    this.id = const Value.absent(),
+    required DateTime startedAt,
+    required DateTime updatedAt,
+    required int elapsedSeconds,
+    required double distanceKm,
+    this.route = const Value.absent(),
+    required RunType runType,
+    required bool paused,
+  }) : startedAt = Value(startedAt),
+       updatedAt = Value(updatedAt),
+       elapsedSeconds = Value(elapsedSeconds),
+       distanceKm = Value(distanceKm),
+       runType = Value(runType),
+       paused = Value(paused);
+  static Insertable<ActiveRunRow> custom({
+    Expression<int>? id,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? elapsedSeconds,
+    Expression<double>? distanceKm,
+    Expression<String>? route,
+    Expression<int>? runType,
+    Expression<bool>? paused,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (startedAt != null) 'started_at': startedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (elapsedSeconds != null) 'elapsed_seconds': elapsedSeconds,
+      if (distanceKm != null) 'distance_km': distanceKm,
+      if (route != null) 'route': route,
+      if (runType != null) 'run_type': runType,
+      if (paused != null) 'paused': paused,
+    });
+  }
+
+  ActiveRunsCompanion copyWith({
+    Value<int>? id,
+    Value<DateTime>? startedAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? elapsedSeconds,
+    Value<double>? distanceKm,
+    Value<String?>? route,
+    Value<RunType>? runType,
+    Value<bool>? paused,
+  }) {
+    return ActiveRunsCompanion(
+      id: id ?? this.id,
+      startedAt: startedAt ?? this.startedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      distanceKm: distanceKm ?? this.distanceKm,
+      route: route ?? this.route,
+      runType: runType ?? this.runType,
+      paused: paused ?? this.paused,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (elapsedSeconds.present) {
+      map['elapsed_seconds'] = Variable<int>(elapsedSeconds.value);
+    }
+    if (distanceKm.present) {
+      map['distance_km'] = Variable<double>(distanceKm.value);
+    }
+    if (route.present) {
+      map['route'] = Variable<String>(route.value);
+    }
+    if (runType.present) {
+      map['run_type'] = Variable<int>(
+        $ActiveRunsTable.$converterrunType.toSql(runType.value),
+      );
+    }
+    if (paused.present) {
+      map['paused'] = Variable<bool>(paused.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActiveRunsCompanion(')
+          ..write('id: $id, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('elapsedSeconds: $elapsedSeconds, ')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('route: $route, ')
+          ..write('runType: $runType, ')
+          ..write('paused: $paused')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $RunsTable runs = $RunsTable(this);
+  late final $ActiveRunsTable activeRuns = $ActiveRunsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [runs];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [runs, activeRuns];
 }
 
 typedef $$RunsTableCreateCompanionBuilder =
@@ -1492,9 +2010,267 @@ typedef $$RunsTableProcessedTableManager =
       RunRow,
       PrefetchHooks Function()
     >;
+typedef $$ActiveRunsTableCreateCompanionBuilder =
+    ActiveRunsCompanion Function({
+      Value<int> id,
+      required DateTime startedAt,
+      required DateTime updatedAt,
+      required int elapsedSeconds,
+      required double distanceKm,
+      Value<String?> route,
+      required RunType runType,
+      required bool paused,
+    });
+typedef $$ActiveRunsTableUpdateCompanionBuilder =
+    ActiveRunsCompanion Function({
+      Value<int> id,
+      Value<DateTime> startedAt,
+      Value<DateTime> updatedAt,
+      Value<int> elapsedSeconds,
+      Value<double> distanceKm,
+      Value<String?> route,
+      Value<RunType> runType,
+      Value<bool> paused,
+    });
+
+class $$ActiveRunsTableFilterComposer
+    extends Composer<_$AppDatabase, $ActiveRunsTable> {
+  $$ActiveRunsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get elapsedSeconds => $composableBuilder(
+    column: $table.elapsedSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get route => $composableBuilder(
+    column: $table.route,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<RunType, RunType, int> get runType =>
+      $composableBuilder(
+        column: $table.runType,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<bool> get paused => $composableBuilder(
+    column: $table.paused,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ActiveRunsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActiveRunsTable> {
+  $$ActiveRunsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get elapsedSeconds => $composableBuilder(
+    column: $table.elapsedSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get route => $composableBuilder(
+    column: $table.route,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get runType => $composableBuilder(
+    column: $table.runType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get paused => $composableBuilder(
+    column: $table.paused,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ActiveRunsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActiveRunsTable> {
+  $$ActiveRunsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get elapsedSeconds => $composableBuilder(
+    column: $table.elapsedSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get route =>
+      $composableBuilder(column: $table.route, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<RunType, int> get runType =>
+      $composableBuilder(column: $table.runType, builder: (column) => column);
+
+  GeneratedColumn<bool> get paused =>
+      $composableBuilder(column: $table.paused, builder: (column) => column);
+}
+
+class $$ActiveRunsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActiveRunsTable,
+          ActiveRunRow,
+          $$ActiveRunsTableFilterComposer,
+          $$ActiveRunsTableOrderingComposer,
+          $$ActiveRunsTableAnnotationComposer,
+          $$ActiveRunsTableCreateCompanionBuilder,
+          $$ActiveRunsTableUpdateCompanionBuilder,
+          (
+            ActiveRunRow,
+            BaseReferences<_$AppDatabase, $ActiveRunsTable, ActiveRunRow>,
+          ),
+          ActiveRunRow,
+          PrefetchHooks Function()
+        > {
+  $$ActiveRunsTableTableManager(_$AppDatabase db, $ActiveRunsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActiveRunsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActiveRunsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActiveRunsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> elapsedSeconds = const Value.absent(),
+                Value<double> distanceKm = const Value.absent(),
+                Value<String?> route = const Value.absent(),
+                Value<RunType> runType = const Value.absent(),
+                Value<bool> paused = const Value.absent(),
+              }) => ActiveRunsCompanion(
+                id: id,
+                startedAt: startedAt,
+                updatedAt: updatedAt,
+                elapsedSeconds: elapsedSeconds,
+                distanceKm: distanceKm,
+                route: route,
+                runType: runType,
+                paused: paused,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required DateTime startedAt,
+                required DateTime updatedAt,
+                required int elapsedSeconds,
+                required double distanceKm,
+                Value<String?> route = const Value.absent(),
+                required RunType runType,
+                required bool paused,
+              }) => ActiveRunsCompanion.insert(
+                id: id,
+                startedAt: startedAt,
+                updatedAt: updatedAt,
+                elapsedSeconds: elapsedSeconds,
+                distanceKm: distanceKm,
+                route: route,
+                runType: runType,
+                paused: paused,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ActiveRunsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActiveRunsTable,
+      ActiveRunRow,
+      $$ActiveRunsTableFilterComposer,
+      $$ActiveRunsTableOrderingComposer,
+      $$ActiveRunsTableAnnotationComposer,
+      $$ActiveRunsTableCreateCompanionBuilder,
+      $$ActiveRunsTableUpdateCompanionBuilder,
+      (
+        ActiveRunRow,
+        BaseReferences<_$AppDatabase, $ActiveRunsTable, ActiveRunRow>,
+      ),
+      ActiveRunRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
   $$RunsTableTableManager get runs => $$RunsTableTableManager(_db, _db.runs);
+  $$ActiveRunsTableTableManager get activeRuns =>
+      $$ActiveRunsTableTableManager(_db, _db.activeRuns);
 }
