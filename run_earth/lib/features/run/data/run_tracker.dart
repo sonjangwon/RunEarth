@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -6,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/models/run.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// 러닝 세션 상태 머신 단계. (기능정의서 4-2-C + run-flow.md)
 enum RunSessionPhase { prerun, countdown, running, paused, stopped }
@@ -146,13 +148,48 @@ class RunTracker extends Notifier<RunSessionState> {
 
   void _startLocationStream() {
     _posSub?.cancel();
-    // run-flow.md 6: 최소 이동거리 5m 필터로 정지 시 GPS 노이즈 누적 방지.
-    const settings = LocationSettings(
+    _posSub = Geolocator.getPositionStream(locationSettings: _locationSettings())
+        .listen(_onPosition);
+  }
+
+  /// 플랫폼별 추적 설정.
+  /// run-flow.md 6: 3초 간격 + 최소 이동거리 5m 필터(정지 시 GPS 노이즈 누적 방지).
+  /// 두 값 모두 2026-09-13 야외 실측(2.61km/383점 = 3.1초·6.8m)으로 검증됨.
+  LocationSettings _locationSettings() {
+    if (Platform.isAndroid) {
+      // 포그라운드 서비스 알림을 띄워 화면을 꺼도 위치 업데이트가 이어지게 한다.
+      // run-flow.md 6 '백그라운드 위치 추적'.
+      return AndroidSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+        intervalDuration: const Duration(seconds: 3),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'Run Earth',
+          notificationText: '러닝을 기록하는 중이에요',
+          notificationChannelName: '러닝 기록',
+          // TODO: 알림 전용 단색 아이콘이 나오면 교체. ic_launcher 는 임시.
+          notificationIcon:
+              AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
+          enableWakeLock: true, // 화면이 꺼져도 좌표를 놓치지 않게.
+          setOngoing: true, // 러닝 중에는 알림을 지울 수 없게.
+          color: AppColors.primary,
+        ),
+      );
+    }
+    if (Platform.isIOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+        activityType: ActivityType.fitness,
+        allowBackgroundLocationUpdates: true,
+        pauseLocationUpdatesAutomatically: false, // 신호등 대기 중 멈추면 곤란.
+        showBackgroundLocationIndicator: true,
+      );
+    }
+    return const LocationSettings(
       accuracy: LocationAccuracy.best,
       distanceFilter: 5,
     );
-    _posSub = Geolocator.getPositionStream(locationSettings: settings)
-        .listen(_onPosition);
   }
 
   void _onPosition(Position pos) {
