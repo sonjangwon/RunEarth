@@ -357,6 +357,13 @@ class RunTracker extends Notifier<RunSessionState> {
   /// 사용자에게 묻지 않고 조용히 이어붙인다(2026-09-15 결정) — 포그라운드
   /// 서비스가 붙은 뒤로는 드물게만 발생하는 경로라, 확인 팝업은 정상 동작을
   /// 비정상처럼 보이게 만든다.
+  ///
+  /// 다만 **항상 일시정지 상태로** 되살린다(2026-09-19 결정). 복원되는 시점의
+  /// 사용자는 이미 뛰기를 멈춘 쪽이 보통이다 — 폰이 꺼져 충전하고 돌아온
+  /// 상황이 대표적이다. 그대로 running 으로 두면 화면만 보고 있어도 1초마다
+  /// 시간이 쌓여 안 뛴 구간이 러닝 시간에 섞이고 페이스가 왜곡된다.
+  /// RESUME 을 누르면 이어 뛴다 — 화면에 일시정지 배지와 RESUME 이 이미 있어
+  /// 따로 묻지 않아도 상태가 드러난다.
   Future<bool> restoreIfAny() async {
     final ActiveRunRow? row;
     try {
@@ -373,16 +380,17 @@ class RunTracker extends Notifier<RunSessionState> {
     }
 
     state = RunSessionState(
-      phase: row.paused ? RunSessionPhase.paused : RunSessionPhase.running,
+      // 스냅샷이 running 이었어도 일시정지로 되살린다(위 주석 참고).
+      phase: RunSessionPhase.paused,
       runType: row.runType,
       elapsed: Duration(seconds: row.elapsedSeconds),
       distanceKm: row.distanceKm,
       route: row.routePoints,
     );
     _startedAt = row.startedAt;
-    // 앱이 죽어 있는 동안 이동했더라도 그 구간은 거리에 더하지 않는다.
-    // 추적하지 못한 이동이라 경로에도 없고, 더하면 페이스만 왜곡된다.
-    _skipNextSegment = true;
+    // 앱이 죽어 있는 동안 이동했더라도 그 구간은 거리에 더하지 않는다
+    // (run-flow.md 7). 일시정지로 복원하므로 RESUME 시 [togglePause] 가
+    // _skipNextSegment 를 세워 준다 — 여기서 따로 세울 필요가 없다.
 
     _startElapsedTimer();
     _startSnapshotTimer();
