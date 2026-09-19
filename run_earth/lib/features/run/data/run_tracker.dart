@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../core/models/enums.dart';
@@ -13,6 +14,20 @@ import '../../../core/theme/app_colors.dart';
 
 /// 러닝 세션 상태 머신 단계. (기능정의서 4-2-C + run-flow.md)
 enum RunSessionPhase { prerun, countdown, running, paused, stopped }
+
+/// 포그라운드 알림 권한 상태(run-flow.md 6 '알림 권한').
+///
+/// 화면 쪽이 `permission_handler` 를 직접 몰라도 되게 3가지로 줄였다.
+enum NotificationPermission {
+  /// 허용됨 - 러닝 중 상단바에 기록 상태가 뜬다.
+  granted,
+
+  /// 아직 허용도 영구 거부도 아니다. 시스템 팝업을 띄워볼 수 있다.
+  askable,
+
+  /// 영구 거부. 팝업을 띄워도 뜨지 않으므로 설정 앱에서 직접 켜야 한다.
+  blocked,
+}
 
 /// 러닝 세션 실시간 상태(불변). GPS·시간·거리·경로를 담는다.
 class RunSessionState {
@@ -394,6 +409,35 @@ class RunTracker extends Notifier<RunSessionState> {
     }
     _startedAt = null;
     state = RunSessionState.initial(row.runType);
+  }
+
+  // ── 알림 권한 (run-flow.md 6) ──────────────────────────────────
+
+  /// 포그라운드 알림 권한 상태.
+  ///
+  /// Android 외에는 항상 [NotificationPermission.granted] 로 본다 - iOS 는
+  /// 포그라운드 서비스 개념이 없고 백그라운드 위치를 Background Modes 로
+  /// 처리하므로, 알림 권한이 추적 지속성에 영향을 주지 않는다.
+  Future<NotificationPermission> notificationPermission() async {
+    if (!Platform.isAndroid) return NotificationPermission.granted;
+    return _mapNotificationStatus(await Permission.notification.status);
+  }
+
+  /// 시스템 알림 권한 팝업을 띄우고 결과 상태를 돌려준다.
+  ///
+  /// 거부돼도 러닝은 막지 않는다 - 알림이 없어도 추적 자체는 된다(2026-09-18
+  /// 실측: 알림이 차단돼도 서비스는 떴다). 대신 화면 쪽에서 경고를 띄운다.
+  Future<NotificationPermission> requestNotificationPermission() async {
+    if (!Platform.isAndroid) return NotificationPermission.granted;
+    return _mapNotificationStatus(await Permission.notification.request());
+  }
+
+  NotificationPermission _mapNotificationStatus(PermissionStatus status) {
+    if (status.isGranted) return NotificationPermission.granted;
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      return NotificationPermission.blocked;
+    }
+    return NotificationPermission.askable;
   }
 
   Future<bool> _ensurePermission() async {

@@ -27,6 +27,72 @@ class RunScreen extends ConsumerStatefulWidget {
 class _RunScreenState extends ConsumerState<RunScreen> {
   bool _showStopConfirm = false;
 
+  /// START 탭 → 알림 권한을 챙긴 뒤 러닝을 시작한다(run-flow.md 6 '알림 권한').
+  ///
+  /// 알림은 포그라운드 서비스가 돌고 있다는 유일한 표시이자, 제조사 절전이
+  /// 서비스를 죽일지 고를 때 보는 신호다. 그래도 **거부가 러닝을 막지는
+  /// 않는다** - 알림 없이도 추적 자체는 되므로(2026-09-18 실측) 경고만 하고
+  /// 진행한다.
+  Future<void> _onStart() async {
+    final tracker = ref.read(runTrackerProvider.notifier);
+    var permission = await tracker.notificationPermission();
+
+    // 아직 물어본 적 없으면 왜 필요한지 먼저 설명한다. 맥락 없이 팝업부터
+    // 띄우면 반사적으로 거부하는데, 안드로이드는 두 번 거부당하면 영구 거부가
+    // 돼 앱에서 다시 물어볼 수 없다.
+    if (permission == NotificationPermission.askable) {
+      final proceed = await _showNotificationRationale();
+      if (!mounted) return;
+      if (proceed) permission = await tracker.requestNotificationPermission();
+    }
+    if (!mounted) return;
+
+    if (permission != NotificationPermission.granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('알림을 허용하지 않으면 화면을 끈 사이 기록이 끊길 수 있어요'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+
+    await tracker.start();
+  }
+
+  /// 알림 권한이 왜 필요한지 설명하는 사전 안내. [true] 면 시스템 팝업으로 간다.
+  Future<bool> _showNotificationRationale() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('알림을 허용해주세요',
+            style: AppTextStyles.sans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground)),
+        content: Text(
+          '러닝 중 상단바에 기록 상태를 표시합니다.\n'
+          '이 표시가 있어야 화면을 꺼도 기록이 끊기지 않아요.',
+          style: AppTextStyles.sans(
+              fontSize: 13, color: AppColors.mutedForeground),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('나중에',
+                style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('계속',
+                style: AppTextStyles.sans(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
   Future<void> _onStopConfirmed() async {
     setState(() => _showStopConfirm = false);
     final tracker = ref.read(runTrackerProvider.notifier);
@@ -59,7 +125,7 @@ class _RunScreenState extends ConsumerState<RunScreen> {
 
     final Widget body = switch (state.phase) {
       RunSessionPhase.prerun =>
-        _Prerun(runType: state.runType, onStart: tracker.start),
+        _Prerun(runType: state.runType, onStart: _onStart),
       RunSessionPhase.countdown =>
         const ColoredBox(color: AppColors.background),
       RunSessionPhase.running ||
