@@ -668,6 +668,10 @@ class _WeatherCard extends StatelessWidget {
           const Text('☀️', style: TextStyle(fontSize: 20)),
           const SizedBox(width: 8),
           Column(
+            // 기본값 MainAxisSize.max 로 두면 64 높이 카드를 세로로 꽉 채우고
+            // 기본 정렬(start)이 글자를 위로 밀어붙인다. 그러면 Row 가 중앙에
+            // 놓는 아이콘과 어긋나 보인다.
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('24°', style: AppTextStyles.display(fontSize: 20)),
@@ -689,6 +693,8 @@ class _DustCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _MiniCard(
       child: Column(
+        // 위 _WeatherCard 와 같은 이유로 내용 높이만 차지하게 한다.
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('미세먼지',
