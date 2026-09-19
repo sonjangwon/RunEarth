@@ -16,8 +16,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Supabase·지도·구글로그인·콘텐츠 이미지 등 네트워크 통신. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- android:label 은 런처·권한 팝업·앱 설정에 노출되는 표시 이름.
+         패키지명(com.runearth.run_earth)과는 별개다. -->
     <application
-        android:label="run_earth"
+        android:label="Run Earth"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- Google Maps SDK 키. 값은 build.gradle.kts 가 secrets.properties 에서 주입. -->
