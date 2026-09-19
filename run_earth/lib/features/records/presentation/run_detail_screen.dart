@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/models/run.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../services/sync/run_sync_service.dart';
+import '../../run/presentation/run_detail_view.dart';
+import '../data/records_providers.dart';
+import 'record_badges.dart';
+
+/// 기록 상세 — 기록 카드를 눌러 들어온다(기능정의서 3-1 · 4-3 섹션 E).
+///
+/// 달리기 종료 화면과 **같은 [RunDetailView]** 를 쓰고 닫기만 ← 로 바꾼다
+/// (기능정의서 5 는 이 둘을 하나의 공유 컴포넌트로 정의한다).
+///
+/// 삭제·수치 수정 UI 는 두지 않는다 — records.md 4 가 "버튼/메뉴 자체를 UI 에
+/// 두지 않음" 으로 못박은 정책이라, 비활성 버튼조차 만들지 않는다.
+class RunDetailScreen extends ConsumerWidget {
+  const RunDetailScreen({super.key, required this.runId});
+
+  final String runId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final runsAsync = ref.watch(runsStreamProvider);
+    // 판정 전(로딩)에는 붙이지 않는다 — 딱지가 깜빡이는 걸 피한다(기록 카드와 동일).
+    final pending =
+        ref.watch(pendingSyncRunIdsProvider).valueOrNull?.contains(runId) ??
+            false;
+
+    void close() {
+      // 탭을 갈아탄 뒤 돌아온 경우처럼 스택이 비어 있을 수 있다.
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/records');
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: runsAsync.when(
+          loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary)),
+          error: (_, _) => _Missing(
+              message: '불러오지 못했어요', onClose: close),
+          data: (runs) {
+            final run = _findById(runs, runId);
+            // 기록은 삭제되지 않지만(records.md 4), 링크로 직접 들어오는 등
+            // 없는 id 가 올 수 있다. 빈 화면 대신 돌아갈 길을 준다.
+            if (run == null) {
+              return _Missing(message: '기록을 찾을 수 없어요', onClose: close);
+            }
+            return RunDetailView(
+              title: '${run.date} ${run.day}',
+              route: run.route,
+              durStr: run.dur,
+              distanceStr: run.km.toStringAsFixed(2),
+              paceStr: run.pace,
+              kcal: run.kcal,
+              onClose: close,
+              headerTrailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RecordTypeBadge(run.type),
+                  if (pending) ...[
+                    const SizedBox(width: 6),
+                    const PendingSyncChip(),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Run? _findById(List<Run> runs, String id) {
+    for (final r in runs) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
+}
+
+class _Missing extends StatelessWidget {
+  const _Missing({required this.message, required this.onClose});
+
+  final String message;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.arrow_back, color: AppColors.foreground),
+            tooltip: '기록 목록으로',
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Text(message,
+                style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+          ),
+        ),
+      ],
+    );
+  }
+}

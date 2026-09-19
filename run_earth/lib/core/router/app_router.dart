@@ -11,6 +11,7 @@ import '../../features/content/presentation/content_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/records/presentation/records_screen.dart';
+import '../../features/records/presentation/run_detail_screen.dart';
 import '../../features/run/presentation/run_screen.dart';
 import '../../services/supabase/supabase_config.dart';
 import 'scaffold_with_nav_bar.dart';
@@ -54,6 +55,15 @@ final GoRouter appRouter = GoRouter(
           GoRoute(
             path: '/records',
             builder: (context, state) => const RecordsScreen(),
+            routes: [
+              // 기록 카드 탭 → 상세. shell 안쪽 자식이라 하단 탭바가 유지되고
+              // ← 로 목록에 돌아온다(기능정의서 3-1).
+              GoRoute(
+                path: ':id',
+                builder: (context, state) =>
+                    RunDetailScreen(runId: state.pathParameters['id']!),
+              ),
+            ],
           ),
         ]),
         StatefulShellBranch(routes: [

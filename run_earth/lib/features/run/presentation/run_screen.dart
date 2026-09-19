@@ -12,7 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/sync/run_sync_service.dart';
 import '../data/run_tracker.dart';
 import 'route_image_renderer.dart';
-import 'route_painter.dart';
+import 'run_detail_view.dart';
 
 /// 달리기 탭 — 러닝 세션 상태머신 + 실제 GPS 추적/저장.
 /// 상태·거리·경로는 [runTrackerProvider] 가 관리한다.
@@ -135,7 +135,19 @@ class _RunScreenState extends ConsumerState<RunScreen> {
           onTogglePause: tracker.togglePause,
           onStop: () => setState(() => _showStopConfirm = true),
         ),
-      RunSessionPhase.stopped => _Result(state: state, onClose: tracker.reset),
+      // 결과 화면은 기록 상세와 같은 컴포넌트다(기능정의서 5). 여기서는
+      // 닫기를 ✕ 로 두고 prerun 으로 초기화한다.
+      RunSessionPhase.stopped => RunDetailView(
+          title: '러닝 완료',
+          route: state.route,
+          durStr: state.elapsedStr,
+          distanceStr: state.distanceStr,
+          paceStr: state.paceStr,
+          kcal: state.kcal,
+          closeIcon: RunDetailClose.x,
+          onClose: tracker.reset,
+          footer: _ResultFooter(onDone: tracker.reset),
+        ),
     };
 
     return Scaffold(
@@ -288,124 +300,6 @@ class _PausedBadge extends StatelessWidget {
 }
 
 // ── stopped (결과) ────────────────────────────────────────────
-class _Result extends StatelessWidget {
-  const _Result({required this.state, required this.onClose});
-  final RunSessionState state;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasKcal = state.kcal > 0;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: IconButton(
-              onPressed: onClose,
-              icon: const Icon(Icons.close, color: AppColors.foreground),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text('러닝 종료', style: AppTextStyles.display(fontSize: 26)),
-          const SizedBox(height: 16),
-          // 대표 이미지 = 경로 렌더 (사진 미등록 기본값).
-          AspectRatio(
-            aspectRatio: 1,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: state.route.length >= 2
-                  ? CustomPaint(painter: RoutePainter(route: state.route))
-                  : const _NoRoutePlaceholder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              children: [
-                _resultRow('시간', state.elapsedStr),
-                _resultRow('거리', '${state.distanceStr} km'),
-                _resultRow('페이스', '${state.paceStr} /km'),
-                _resultRow('칼로리', hasKcal ? '${state.kcal} kcal' : '-- kcal'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text('기록 탭에서 방금 러닝을 확인할 수 있어요.',
-              style: AppTextStyles.sans(
-                  fontSize: 11, color: AppColors.mutedForeground)),
-          const SizedBox(height: 20),
-          // 완료 → prerun 으로 초기화(다시 달리기 가능). 상단 X 와 동일 동작.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: const LinearGradient(
-                  colors: [Color(0xFF00E87A), Color(0xFF00C060)]),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: onClose,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: Center(
-                    child: Text('완료',
-                        style: AppTextStyles.display(
-                            fontSize: 16, color: Colors.black)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _resultRow(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label,
-                style: AppTextStyles.sans(
-                    fontSize: 13, color: AppColors.mutedForeground)),
-            Text(value, style: AppTextStyles.display(fontSize: 20)),
-          ],
-        ),
-      );
-}
-
-class _NoRoutePlaceholder extends StatelessWidget {
-  const _NoRoutePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.card,
-      child: Center(
-        child: Text('경로가 기록되지 않았어요',
-            style: AppTextStyles.sans(
-                fontSize: 12, color: AppColors.mutedForeground)),
-      ),
-    );
-  }
-}
-
-// ── 러닝 중 지도 (GoogleMap 실지도) ───────────────────────────
-/// 러닝 중 실제 지도 위에 경로를 네온그린 폴리라인으로 그린다.
-/// 커버 이미지(결과 화면)는 여전히 [RoutePainter] 캔버스를 쓴다(결정사항 #2).
 class _RunMap extends StatefulWidget {
   const _RunMap({
     required this.route,
@@ -871,6 +765,49 @@ class _ControlButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 결과 화면 하단 — 안내 문구 + '완료' 버튼.
+/// 기록 상세에는 없는 부분이라 [RunDetailView.footer] 로 끼워 넣는다.
+class _ResultFooter extends StatelessWidget {
+  const _ResultFooter({required this.onDone});
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('기록 탭에서 경로 이미지를 확인할 수 있어요.',
+            style: AppTextStyles.sans(
+                fontSize: 11, color: AppColors.mutedForeground)),
+        const SizedBox(height: 20),
+        // 완료 → prerun 으로 초기화(다시 달리기 가능). 상단 ✕ 와 같은 동작.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: const LinearGradient(
+                colors: [Color(0xFF00E87A), Color(0xFF00C060)]),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onDone,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Center(
+                  child: Text('완료',
+                      style: AppTextStyles.display(
+                          fontSize: 16, color: Colors.black)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
