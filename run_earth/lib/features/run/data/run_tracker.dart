@@ -129,6 +129,15 @@ class RunTracker extends Notifier<RunSessionState> {
   /// RESUME 직후 첫 좌표는 일시정지 중 이동분을 거리에 더하지 않도록 앵커로만 쓴다.
   bool _skipNextSegment = false;
 
+  /// 경로·거리에 반영할 최소 이동 거리(m). 정지 중 GPS 노이즈가 거리로
+  /// 쌓이는 걸 막는다(run-flow.md 6).
+  ///
+  /// 예전에는 이 값을 위치 스트림의 `distanceFilter` 로 걸었는데, 그러면
+  /// 이만큼 움직이기 전까지 **위치가 아예 들어오지 않아** 지도와 'GPS 대기'
+  /// 배지까지 멈췄다. 이제 위치는 항상 받고 **누적할 때만** 검사한다
+  /// (2026-09-19).
+  static const _minSegmentMeters = 5.0;
+
   @override
   RunSessionState build() {
     ref.onDispose(_disposeAll);
@@ -146,6 +155,14 @@ class RunTracker extends Notifier<RunSessionState> {
       countdown: 3,
       error: null,
     );
+
+    // 카운트다운 동안 미리 GPS 를 켠다. 첫 fix 는 수 초 걸리는데 예전에는
+    // 카운트다운이 끝난 뒤에야 스트림을 열어 그 3초를 통째로 버렸다.
+    // 이 구간에 들어온 좌표는 phase 가 running 이 아니라 거리에 누적되지
+    // 않고, [_beginRun] 이 route 를 비우므로 안전하다.
+    unawaited(_seedCurrentPosition());
+    _startLocationStream();
+
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (state.countdown <= 1) {
         t.cancel();
@@ -165,8 +182,29 @@ class RunTracker extends Notifier<RunSessionState> {
     );
     _startedAt = DateTime.now();
     _startElapsedTimer();
-    _startLocationStream();
-    _startSnapshotTimer();
+    _startSnapshotTimer(); // 위치 스트림은 [start] 에서 이미 켰다.
+  }
+
+  /// 캐시된 마지막 위치로 지도를 즉시 채운다.
+  ///
+  /// 첫 GPS fix 는 수 초~수십 초 걸리고, 그동안 지도는 폴백 좌표(서울시청)에
+  /// 머문다. 캐시 위치는 즉시 돌아오므로 그 공백을 메운다.
+  ///
+  /// **거리·경로에는 절대 넣지 않는다.** 몇 시간 전 수 km 떨어진 값일 수 있어,
+  /// 경로에 넣으면 첫 실제 fix 까지의 직선거리가 통째로 거리로 잡힌다.
+  /// 지도 카메라가 보는 [RunSessionState.current] 에만 반영한다.
+  Future<void> _seedCurrentPosition() async {
+    if (state.current != null) return;
+    try {
+      final pos = await Geolocator.getLastKnownPosition();
+      // 기다리는 사이 진짜 fix 가 들어왔으면 캐시 값으로 덮지 않는다.
+      if (pos == null || state.current != null) return;
+      state = state.copyWith(
+        current: LatLngPoint(lat: pos.latitude, lng: pos.longitude),
+      );
+    } catch (e) {
+      debugPrint('[run] 캐시 위치 조회 실패: $e'); // 스트림이 곧 채운다.
+    }
   }
 
   void _startElapsedTimer() {
@@ -185,15 +223,18 @@ class RunTracker extends Notifier<RunSessionState> {
   }
 
   /// 플랫폼별 추적 설정.
-  /// run-flow.md 6: 3초 간격 + 최소 이동거리 5m 필터(정지 시 GPS 노이즈 누적 방지).
-  /// 두 값 모두 2026-09-13 야외 실측(2.61km/383점 = 3.1초·6.8m)으로 검증됨.
+  ///
+  /// run-flow.md 6 의 '3초 간격'은 그대로다(2026-09-13 야외 실측으로 검증).
+  /// 다만 `distanceFilter` 는 **0 으로 둔다** - 여기서 거르면 그만큼 움직이기
+  /// 전까지 위치가 아예 안 들어와 지도와 'GPS 대기' 배지가 멈춘다. 최소 이동
+  /// 거리 검사는 [_onPosition] 이 거리·경로를 누적할 때만 한다(2026-09-19).
   LocationSettings _locationSettings() {
     if (Platform.isAndroid) {
       // 포그라운드 서비스 알림을 띄워 화면을 꺼도 위치 업데이트가 이어지게 한다.
       // run-flow.md 6 '백그라운드 위치 추적'.
       return AndroidSettings(
         accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
+        distanceFilter: 0,
         intervalDuration: const Duration(seconds: 3),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'Run Earth',
@@ -212,7 +253,7 @@ class RunTracker extends Notifier<RunSessionState> {
     if (Platform.isIOS) {
       return AppleSettings(
         accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
+        distanceFilter: 0,
         activityType: ActivityType.fitness,
         allowBackgroundLocationUpdates: true,
         pauseLocationUpdatesAutomatically: false, // 신호등 대기 중 멈추면 곤란.
@@ -221,36 +262,43 @@ class RunTracker extends Notifier<RunSessionState> {
     }
     return const LocationSettings(
       accuracy: LocationAccuracy.best,
-      distanceFilter: 5,
+      distanceFilter: 0,
     );
   }
 
   void _onPosition(Position pos) {
     final point = LatLngPoint(lat: pos.latitude, lng: pos.longitude);
 
-    // running 이 아닐 때(paused)는 현재 위치만 갱신, 거리·경로 누적 없음.
-    if (state.phase != RunSessionPhase.running) {
-      state = state.copyWith(current: point);
+    // 지도와 'GPS 대기' 배지가 보는 현재 위치는 **항상** 갱신한다.
+    // 아래 누적 조건에 걸려 걸러지더라도 화면은 살아 있어야 한다.
+    state = state.copyWith(current: point);
+
+    // running 이 아닐 때(카운트다운·일시정지)는 거리·경로를 건드리지 않는다.
+    if (state.phase != RunSessionPhase.running) return;
+
+    final last = state.route.isNotEmpty ? state.route.last : null;
+
+    // 첫 좌표는 앵커로만 잡는다(더할 이전 좌표가 없다).
+    if (last == null) {
+      _skipNextSegment = false;
+      state = state.copyWith(route: [point]);
       return;
     }
 
-    var distance = state.distanceKm;
-    final last = state.route.isNotEmpty ? state.route.last : null;
-    if (last != null && !_skipNextSegment) {
-      distance += Geolocator.distanceBetween(
-            last.lat,
-            last.lng,
-            point.lat,
-            point.lng,
-          ) /
-          1000;
-    }
+    final meters =
+        Geolocator.distanceBetween(last.lat, last.lng, point.lat, point.lng);
+    // 정지 중 GPS 노이즈가 거리로 쌓이지 않게 최소 이동거리 미만은 버린다.
+    // 경로에도 넣지 않는다 - 제자리 점이 쌓이면 폴리라인만 지저분해진다.
+    if (meters < _minSegmentMeters) return;
+
+    // 복원·RESUME 직후 첫 구간은 앵커로만 쓰고 거리에 더하지 않는다
+    // (추적하지 못한 이동이라 더하면 페이스가 왜곡된다. run-flow.md 7).
+    final add = _skipNextSegment ? 0.0 : meters / 1000;
     _skipNextSegment = false;
 
     state = state.copyWith(
       route: [...state.route, point],
-      distanceKm: distance,
-      current: point,
+      distanceKm: state.distanceKm + add,
     );
   }
 
@@ -388,6 +436,10 @@ class RunTracker extends Notifier<RunSessionState> {
       route: row.routePoints,
     );
     _startedAt = row.startedAt;
+    // 지도가 폴백(서울시청)이 아니라 뛰던 자리를 비추도록 마지막 좌표를 준다.
+    if (row.routePoints.isNotEmpty) {
+      state = state.copyWith(current: row.routePoints.last);
+    }
     // 앱이 죽어 있는 동안 이동했더라도 그 구간은 거리에 더하지 않는다
     // (run-flow.md 7). 일시정지로 복원하므로 RESUME 시 [togglePause] 가
     // _skipNextSegment 를 세워 준다 — 여기서 따로 세울 필요가 없다.

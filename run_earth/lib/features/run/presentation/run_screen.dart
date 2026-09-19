@@ -473,7 +473,10 @@ class _RunMapState extends State<_RunMap> {
             },
           ),
         ),
-        if (widget.route.length < 2)
+        // 좌표를 하나라도 잡았으면 내린다. 예전 조건은 route.length < 2 였는데,
+        // 출발선에 서 있으면 두 번째 점이 안 찍혀 신호가 멀쩡한데도 계속
+        // '기다리는 중'으로 보였다(2026-09-19).
+        if (widget.current == null)
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
