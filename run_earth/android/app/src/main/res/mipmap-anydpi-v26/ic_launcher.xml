@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 8(API 26)+ 적응형 아이콘. 레거시 mipmap/ic_launcher.png 은 그 이전 기기용.
+     적응형을 두지 않으면 런처가 다크 정사각형을 흰 배지 위에 얹어 버린다.
+     monochrome 은 Android 13+ 테마 아이콘용 — 전경의 알파만 쓰므로 같은 파일을 쓴다. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <monochrome android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>

@@ -199,9 +199,10 @@ class RunTracker extends Notifier<RunSessionState> {
           notificationTitle: 'Run Earth',
           notificationText: '러닝을 기록하는 중이에요',
           notificationChannelName: '러닝 기록',
-          // TODO: 알림 전용 단색 아이콘이 나오면 교체. ic_launcher 는 임시.
+          // 알림 아이콘은 알파만 쓰이고 시스템이 단색으로 칠한다 - 컬러 런처
+          // 아이콘을 쓰면 흰 덩어리로 뭉개진다. 전용 단색 실루엣을 쓴다.
           notificationIcon:
-              AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
+              AndroidResource(name: 'ic_notification', defType: 'drawable'),
           enableWakeLock: true, // 화면이 꺼져도 좌표를 놓치지 않게.
           setOngoing: true, // 러닝 중에는 알림을 지울 수 없게.
           color: AppColors.primary,
