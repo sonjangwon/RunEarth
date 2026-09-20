@@ -33,26 +33,34 @@ class RoutePainter extends CustomPainter {
       path.lineTo(p.dx, p.dy);
     }
 
+    // 굵기는 캔버스 크기에 비례시키되 **최소값을 보장한다.**
+    // 1080px 커버 기준 비율을 그대로 쓰면 44px 썸네일에서 선이 0.5px 가 되어
+    // 사실상 사라진다(기록 카드 썸네일, 2026-09-20).
+    final side = size.shortestSide;
+    final strokeW = math.max(side * 0.011, 1.6);
+    final glowW = math.max(side * 0.03, 3.2);
+    final blur = math.max(side * 0.012, 1.2);
+
     // 네온 글로우(흐림) → 선명한 라인 순서로 겹쳐 그린다.
     final glow = Paint()
       ..color = line.withAlpha(0x66)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.03
+      ..strokeWidth = glowW
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.shortestSide * 0.012);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
     canvas.drawPath(path, glow);
 
     final stroke = Paint()
       ..color = line
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.011
+      ..strokeWidth = strokeW
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(path, stroke);
 
     if (showEndpoints) {
-      final r = size.shortestSide * 0.016;
+      final r = math.max(side * 0.016, 2.0);
       // 시작점: 흰 테두리 원
       canvas.drawCircle(
         points.first,
