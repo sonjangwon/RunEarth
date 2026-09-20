@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../../core/models/air_quality.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/sync/run_sync_service.dart';
+import '../data/air_quality_provider.dart';
 import '../data/run_tracker.dart';
 import 'route_image_renderer.dart';
 import 'run_detail_view.dart';
@@ -583,12 +585,25 @@ class _WeatherCard extends StatelessWidget {
   }
 }
 
-class _DustCard extends StatelessWidget {
+/// 미세먼지 카드 — 4단계 상태 바(기능정의서 4-2 섹션 B).
+///
+/// 값은 [airQualityProvider] 가 준다. 아직 에어코리아 연동 전이라 항상 null
+/// 이고, 그때는 "불러오지 못했어요"(`offline-handling.md` §2-A)를 보인다.
+class _DustCard extends ConsumerWidget {
   const _DustCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final quality = ref.watch(airQualityProvider);
+    if (quality == null) return const _MiniCard(child: _DustUnavailable());
+
+    final color = _dustColor(quality);
     return _MiniCard(
+      // 문서가 배경 활성을 '나쁨'·'매우나쁨' 으로 한정한다 — 좋음·보통까지
+      // 물들이면 경고가 일상이 되어 정작 나쁜 날에 눈에 안 띈다.
+      background: quality.needsAlertBackground
+          ? AppColors.badgeBackground(color)
+          : null,
       child: Column(
         // 위 _WeatherCard 와 같은 이유로 내용 높이만 차지하게 한다.
         mainAxisSize: MainAxisSize.min,
@@ -597,19 +612,103 @@ class _DustCard extends StatelessWidget {
           Text('미세먼지',
               style: AppTextStyles.sans(
                   fontSize: 9, color: AppColors.mutedForeground)),
-          const SizedBox(height: 2),
-          Text('보통',
-              style:
-                  AppTextStyles.sans(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Text(quality.label,
+                  style: AppTextStyles.sans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: color)),
+              const SizedBox(width: 8),
+              _DustBar(step: quality.step, color: color),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
+/// 4단계 중 [step] 칸까지 채운 막대.
+class _DustBar extends StatelessWidget {
+  const _DustBar({required this.step, required this.color});
+
+  final int step;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 1; i <= 4; i++) ...[
+          if (i > 1) const SizedBox(width: 4),
+          Container(
+            width: 11,
+            height: 6,
+            decoration: BoxDecoration(
+              color: i <= step ? color : AppColors.muted,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// 값을 못 가져왔을 때. `global-states.md` 의 인라인 에러 패턴 —
+/// 중립 아이콘 + "불러오지 못했어요".
+///
+/// "다시 시도" 버튼은 **아직 붙이지 않았다.** 재호출할 요청 자체가 없어
+/// 누르면 아무 일도 하지 않는 버튼이 된다. 에어코리아 연동 때 함께 만든다
+/// (2026-09-19 의 '대표 이미지 변경' 버튼과 같은 판단).
+class _DustUnavailable extends StatelessWidget {
+  const _DustUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('미세먼지',
+            style: AppTextStyles.sans(
+                fontSize: 9, color: AppColors.mutedForeground)),
+        const SizedBox(height: 3),
+        Row(
+          children: [
+            const Icon(Icons.error_outline,
+                size: 13, color: AppColors.mutedForeground),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text('불러오지 못했어요',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.sans(
+                      fontSize: 11, color: AppColors.mutedForeground)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+Color _dustColor(AirQuality quality) => switch (quality) {
+      AirQuality.good => AppColors.dustGood,
+      AirQuality.moderate => AppColors.dustModerate,
+      AirQuality.bad => AppColors.dustBad,
+      AirQuality.veryBad => AppColors.dustVeryBad,
+    };
+
 class _MiniCard extends StatelessWidget {
-  const _MiniCard({required this.child});
+  const _MiniCard({required this.child, this.background});
   final Widget child;
+
+  /// 기본은 카드 색. 미세먼지 '나쁨' 이상에서만 경고색이 들어온다.
+  final Color? background;
 
   @override
   Widget build(BuildContext context) {
@@ -618,7 +717,7 @@ class _MiniCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: background ?? AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),

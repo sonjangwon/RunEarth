@@ -44,6 +44,22 @@ abstract final class AppColors {
   /// 뱃지 배경용 옅은 알파(0x18) 처리.
   static Color badgeBackground(Color base) => base.withAlpha(0x18);
 
+  // ── 미세먼지 4단계 (4-2 섹션 B) ────────────────────────────
+  // 에어코리아 표준 색계를 따른다(2026-09-20 확정) — 기상·대기 앱 어디서나
+  // 같은 의미로 쓰여 사용자가 새로 배울 게 없다. 네 색 모두 기존 토큰과
+  // 같은 값이라 팔레트가 늘어나지도 않는다.
+  /// 좋음 — 파랑(러닝 타입 '테마' 와 같은 값)
+  static const dustGood = typeTheme;
+
+  /// 보통 — 네온 그린
+  static const dustModerate = primary;
+
+  /// 나쁨 — 오렌지
+  static const dustBad = accent;
+
+  /// 매우나쁨 — 빨강(스트릭 7일과 같은 값)
+  static const dustVeryBad = Color(0xFFEF4444);
+
   // ── 스트릭 인디케이터 (7-4) ────────────────────────────────
   /// 연속 러닝일 수(1~7)에 대응하는 채움 색.
   /// 1~3일 초록 · 4~6일 주황 · 7일 빨강. 미달성/미래는 null.
