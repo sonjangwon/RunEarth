@@ -66,6 +66,13 @@ class RunDetailScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   RecordTypeBadge(run.type),
+                  // 목록에서 접혀 있던 이유를 상세에서도 알 수 있게(카드와 같은 순서).
+                  // 달리기 종료 화면은 headerTrailing 을 주지 않아 여기만 붙는다 —
+                  // 방금 자기가 끝낸 러닝에 '미완료' 를 바로 띄우는 건 과하다.
+                  if (run.isIncomplete) ...[
+                    const SizedBox(width: 6),
+                    const IncompleteRunChip(),
+                  ],
                   if (pending) ...[
                     const SizedBox(width: 6),
                     const PendingSyncChip(),
