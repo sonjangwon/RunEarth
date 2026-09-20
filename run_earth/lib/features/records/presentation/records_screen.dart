@@ -19,6 +19,7 @@ class RecordsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final runsAsync = ref.watch(runsStreamProvider);
     final filter = ref.watch(recordsFilterProvider);
+    final showIncomplete = ref.watch(showIncompleteRunsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -30,9 +31,15 @@ class RecordsScreen extends ConsumerWidget {
               child: Text('불러오지 못했어요',
                   style: AppTextStyles.sans(color: AppColors.mutedForeground))),
           data: (allRuns) {
-            final runs = filter == null
+            final typed = filter == null
                 ? allRuns
                 : allRuns.where((r) => r.type == filter).toList();
+            // 0km 기록 정책(2026-09-20): 미완료 러닝은 기본으로 접어둔다.
+            // 요약 통계는 토글과 무관하게 **항상 완료 기록만** 센다 —
+            // 펼쳐 봤다고 총 횟수가 늘면 어느 쪽이 진짜인지 알 수 없다.
+            final complete = typed.where((r) => !r.isIncomplete).toList();
+            final hiddenCount = typed.length - complete.length;
+            final runs = showIncomplete ? typed : complete;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -40,8 +47,9 @@ class RecordsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: Text('기록', style: AppTextStyles.display(fontSize: 24)),
                 ),
-                _SummaryStats(runs),
+                _SummaryStats(complete),
                 const _FilterBar(),
+                if (hiddenCount > 0) _IncompleteToggle(hiddenCount),
                 Expanded(
                   child: runs.isEmpty
                       ? const _EmptyState()
@@ -57,15 +65,10 @@ class RecordsScreen extends ConsumerWidget {
 }
 
 String _formatTotalTime(List<Run> runs) {
+  // 초 변환은 Run 확장(`durSeconds`)이 정본 — 같은 파싱을 여기·홈에 복제하지 않는다.
   var totalSeconds = 0;
   for (final r in runs) {
-    final parts = r.dur.split(':').map(int.tryParse).toList();
-    if (parts.contains(null)) continue;
-    if (parts.length == 2) {
-      totalSeconds += parts[0]! * 60 + parts[1]!;
-    } else if (parts.length == 3) {
-      totalSeconds += parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
-    }
+    totalSeconds += r.durSeconds;
   }
   final h = totalSeconds ~/ 3600;
   final m = (totalSeconds % 3600) ~/ 60;
@@ -166,6 +169,43 @@ class _FilterBar extends ConsumerWidget {
   }
 }
 
+/// 접어둔 미완료 러닝을 펼치는 토글. 숨긴 게 하나도 없으면 아예 뜨지 않는다.
+///
+/// 기록을 **지우는 게 아니라 접어두는** 것이므로 진입로가 반드시 있어야 한다
+/// (`records.md` 4 영구 보존). 0km 기록 정책(2026-09-20).
+class _IncompleteToggle extends ConsumerWidget {
+  const _IncompleteToggle(this.hiddenCount);
+  final int hiddenCount;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final show = ref.watch(showIncompleteRunsProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () =>
+            ref.read(showIncompleteRunsProvider.notifier).state = !show,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+                show
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 14,
+                color: AppColors.mutedForeground),
+            const SizedBox(width: 6),
+            Text(show ? '미완료 러닝 숨기기' : '미완료 러닝 $hiddenCount건 보기',
+                style: AppTextStyles.sans(
+                    fontSize: 11, color: AppColors.mutedForeground)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RunList extends StatelessWidget {
   const _RunList(this.runs);
   final List<Run> runs;
@@ -255,6 +295,10 @@ class _RunCard extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             RecordTypeBadge(run.type),
+            if (run.isIncomplete) ...[
+              const SizedBox(width: 6),
+              const IncompleteRunChip(),
+            ],
             if (pending) ...[
               const SizedBox(width: 6),
               const PendingSyncChip(),

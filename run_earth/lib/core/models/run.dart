@@ -42,3 +42,32 @@ abstract class Run with _$Run {
 
   factory Run.fromJson(Map<String, dynamic> json) => _$RunFromJson(json);
 }
+
+/// 미완료 러닝 판정 — 0km 기록 정책(2026-09-20 확정).
+///
+/// START 를 눌렀다 만 기록이 스트릭·총 횟수를 오염시키는 문제를 막는다.
+/// **저장은 막지 않는다** — 거리 0 은 "안 뛴 것"과 "뛰었는데 GPS 를 못 잡은 것"을
+/// 구분하지 못하므로(2026-09-13 노트 §3-2 `run_1789297203613307`: 1분 37초에
+/// 좌표 1개), 저장을 막으면 진짜 기록을 잃는다. `records.md` 4 의
+/// "삭제 불가·영구 보존"은 데이터를 지키자는 것이지 표시를 강제하는 게 아니다.
+/// 그래서 **세는 것과 보여주는 것만** 조정한다.
+extension RunCompleteness on Run {
+  /// `dur`("mm:ss" 또는 "hh:mm:ss")을 초로 변환. 형식이 깨졌으면 0.
+  int get durSeconds {
+    final parts = dur.split(':').map(int.tryParse).toList();
+    if (parts.contains(null)) return 0;
+    if (parts.length == 3) {
+      return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+    }
+    if (parts.length == 2) {
+      return parts[0]! * 60 + parts[1]!;
+    }
+    return 0;
+  }
+
+  /// 미완료 러닝 — 거리가 사실상 0 **이면서** 1분도 안 된 기록.
+  ///
+  /// 두 조건을 **모두** 만족해야 한다. 거리만 보면 GPS 를 못 잡은 채 오래 뛴
+  /// 기록까지 걸러내 버린다.
+  bool get isIncomplete => km < 0.01 && durSeconds < 60;
+}

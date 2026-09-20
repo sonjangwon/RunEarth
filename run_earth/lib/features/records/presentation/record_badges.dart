@@ -57,3 +57,26 @@ class PendingSyncChip extends StatelessWidget {
     );
   }
 }
+
+/// '미완료' 칩 — 거리 0 · 1분 미만 기록(0km 정책, 2026-09-20).
+///
+/// 목록에서 기본으로 접히지만, 펼쳐 봤을 때 **왜 접혀 있었는지** 알 수 있어야
+/// 한다. 성취가 아니라 상태이므로 `PendingSyncChip` 과 같은 무채색.
+class IncompleteRunChip extends StatelessWidget {
+  const IncompleteRunChip({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.muted,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text('미완료',
+          style: AppTextStyles.sans(
+              fontSize: 11, color: AppColors.mutedForeground)),
+    );
+  }
+}

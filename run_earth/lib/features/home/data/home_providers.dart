@@ -30,32 +30,20 @@ class HomeStats {
   String get durationLabel => '${totalHours}h ${totalMinutes}m';
 }
 
-/// `dur`("mm:ss" 또는 "hh:mm:ss")을 초로 변환.
-int _durToSeconds(String dur) {
-  final parts = dur.split(':');
-  if (parts.length == 3) {
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = int.tryParse(parts[1]) ?? 0;
-    final s = int.tryParse(parts[2]) ?? 0;
-    return h * 3600 + m * 60 + s;
-  }
-  if (parts.length == 2) {
-    final m = int.tryParse(parts[0]) ?? 0;
-    final s = int.tryParse(parts[1]) ?? 0;
-    return m * 60 + s;
-  }
-  return 0;
-}
-
 /// 로컬 DB 전체 기록에서 통계 집계.
+///
+/// 미완료 러닝(`isIncomplete`)은 세지 않는다 — 0km 기록 정책(2026-09-20).
+/// 기록 자체는 DB 에 그대로 남아 있고, 집계에서만 빠진다.
 final homeStatsProvider = Provider<HomeStats>((ref) {
-  final runs = ref.watch(runsStreamProvider).valueOrNull;
-  if (runs == null || runs.isEmpty) return HomeStats.empty;
+  final all = ref.watch(runsStreamProvider).valueOrNull;
+  if (all == null) return HomeStats.empty;
+  final runs = all.where((r) => !r.isIncomplete).toList();
+  if (runs.isEmpty) return HomeStats.empty;
   var km = 0.0;
   var sec = 0;
   for (final r in runs) {
     km += r.km;
-    sec += _durToSeconds(r.dur);
+    sec += r.durSeconds;
   }
   return HomeStats(totalKm: km, totalSeconds: sec, count: runs.length);
 });
@@ -183,8 +171,11 @@ final streakProvider = Provider<StreakInfo>((ref) {
   final today = _dateOnly(DateTime.now());
 
   // 러닝한 날짜 집합.
+  // 미완료 러닝(`isIncomplete`)은 제외한다 — START 만 눌렀다 만 기록이 스트릭을
+  // 채우면 "매일 뛰었다"가 "매일 버튼을 눌렀다"가 된다. 0km 기록 정책(2026-09-20).
   final ranDates = <DateTime>{};
   for (final r in runs) {
+    if (r.isIncomplete) continue;
     final d = _runDate(r);
     if (d != null) ranDates.add(d);
   }
