@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 앱 UI 는 시스템 테마와 무관하게 항상 다크다. 그래서 런치 테마도
+         values/ 와 values-night/ 가 같은 배경을 쓴다 — 원래 여기만
+         Theme.Light 라 폰이 라이트 모드면 흰 화면이 번쩍였다(2026-09-20 §7). -->
     <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <!-- Show a splash screen on the activity. Automatically removed when
              the Flutter engine draws its first frame -->
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <!-- Android 12+ 는 windowBackground 가 아니라 이 속성을 본다.
+             없으면 스플래시 배경이 흰색으로 돌아간다. 낮은 API 는 무시. -->
+        <item name="android:windowSplashScreenBackground">@color/launch_background</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your
@@ -12,7 +18,7 @@
          running.
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/launch_background</item>
     </style>
 </resources>

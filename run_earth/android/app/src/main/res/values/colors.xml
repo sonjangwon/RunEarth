@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 네이티브 런치 화면용 색. Flutter 가 첫 프레임을 그리기 전까지 OS 가
+     칠하는 구간이라 Dart 의 AppColors 로는 손댈 수 없다.
+     값은 디자인 토큰 background(#070911)와 같아야 한다 — 어긋나면 앱이 뜨는
+     순간 배경색이 한 번 바뀐다. -->
+<resources>
+    <color name="launch_background">#070911</color>
+</resources>
