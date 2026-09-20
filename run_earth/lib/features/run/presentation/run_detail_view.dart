@@ -19,9 +19,16 @@ enum RunDetailClose {
 /// 두 화면은 **같은 컴포넌트**다. 달라지는 건 닫기 버튼과 아래에 덧붙는
 /// 내용뿐이라 [closeIcon] 과 [footer] 로 갈린다.
 ///
+/// 레이아웃 정본은 Figma(App.tsx 423-639) — **4:5 히어로 카드**가 중심이다.
+/// 경로를 화면 가득 보여주고 수치를 그 위에 얹는 구성으로, 그대로 공유해도
+/// 되는 한 장이 되게 했다(워터마크가 그래서 있다).
+///
 /// 대표 이미지는 저장된 PNG 를 읽지 않고 **[route] 좌표로 직접 그린다.**
 /// 좌표만 있으면 어디서든 다시 그릴 수 있고(2026-09-11 결정), 렌더가 실패했거나
 /// 파일이 사라진 기록도 정상적으로 보인다.
+///
+/// > Figma 의 **사진 모드**(Strava 식)는 아직 없다 — 사진 기능이 붙을 때
+/// > 카메라 버튼과 함께 만든다(`docs/figma-alignment.md` 6번).
 class RunDetailView extends StatelessWidget {
   const RunDetailView({
     super.key,
@@ -54,96 +61,447 @@ class RunDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isBack = closeIcon == RunDetailClose.back;
-    final closeButton = IconButton(
-      onPressed: onClose,
-      icon: Icon(isBack ? Icons.arrow_back : Icons.close,
-          color: AppColors.foreground),
-      // 기록 목록/달리기 화면으로 돌아가는 유일한 수단이라 이름을 붙여둔다.
-      tooltip: isBack ? '기록 목록으로' : '닫기',
-    );
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                // ← 는 왼쪽, ✕ 는 오른쪽. 플랫폼 관례대로.
-                if (isBack) closeButton else const Spacer(),
-                if (headerTrailing != null) ...[
-                  const Spacer(),
-                  headerTrailing!,
-                ],
-                if (!isBack) closeButton,
-              ],
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Hero(
+            title: title,
+            route: route,
+            durStr: durStr,
+            distanceStr: distanceStr,
+            paceStr: paceStr,
+            kcal: kcal,
+            onClose: onClose,
+            closeIcon: closeIcon,
+            headerTrailing: headerTrailing,
+          ),
+          const SizedBox(height: 16),
+          _SectionLabel('상세 기록'),
+          const SizedBox(height: 10),
+          _DetailGrid(
+            distanceStr: distanceStr,
+            paceStr: paceStr,
+            durStr: durStr,
+            kcal: kcal,
+          ),
+          const SizedBox(height: 18),
+          _SectionLabel('달린 구간'),
+          const SizedBox(height: 8),
+          _RouteSection(route: route),
+          // 기록 수치는 읽기 전용이다. 수정·삭제 UI 는 두지 않는다
+          // (records.md 4 — 버튼 자체를 만들지 않는 것이 정책).
+          if (footer != null) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: footer!,
             ),
-            const SizedBox(height: 8),
-            Text(title, style: AppTextStyles.display(fontSize: 26)),
-            const SizedBox(height: 16),
-            // 대표 이미지 = 경로 이미지 (사진 미등록 시 기본값. run-flow.md 4)
-            AspectRatio(
-              aspectRatio: 1,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: route.length >= 2
-                    ? CustomPaint(painter: RoutePainter(route: route))
-                    : const _NoRoutePlaceholder(),
+          ],
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+/// 4:5 히어로 — 다크맵 배경 + 그리드 + 네온 글로우 + 중앙 경로 + 하단 수치.
+class _Hero extends StatelessWidget {
+  const _Hero({
+    required this.title,
+    required this.route,
+    required this.durStr,
+    required this.distanceStr,
+    required this.paceStr,
+    required this.kcal,
+    required this.onClose,
+    required this.closeIcon,
+    this.headerTrailing,
+  });
+
+  final String title;
+  final List<LatLngPoint> route;
+  final String durStr;
+  final String distanceStr;
+  final String paceStr;
+  final int kcal;
+  final VoidCallback onClose;
+  final RunDetailClose closeIcon;
+  final Widget? headerTrailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBack = closeIcon == RunDetailClose.back;
+    final hasRoute = route.length >= 2;
+
+    return AspectRatio(
+      // 4:5 — 그대로 공유할 수 있는 인스타 비율(Figma 488줄).
+      aspectRatio: 4 / 5,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 배경: 어두운 지도 톤 그라데이션.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0A1220),
+                  Color(0xFF060D18),
+                  Color(0xFF040810),
+                ],
+                stops: [0, 0.5, 1],
               ),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(20),
+          ),
+          // 옅은 격자 — 지도처럼 보이게 하는 최소한의 장치.
+          const CustomPaint(painter: _HeroGridPainter()),
+          // 경로 뒤 네온 글로우.
+          if (hasRoute)
+            const DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                gradient: RadialGradient(
+                  center: Alignment(0, -0.1),
+                  radius: 0.62,
+                  colors: [Color(0x1200E87A), Color(0x0000E87A)],
+                ),
+              ),
+            ),
+          // 경로.
+          if (hasRoute)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(44, 64, 44, 130),
+              child: CustomPaint(
+                painter: RoutePainter(
+                  route: route,
+                  // 히어로 배경 위에 얹히므로 배경은 그리지 않는다.
+                  background: Colors.transparent,
+                ),
+              ),
+            )
+          else
+            Center(
+              child: Text('경로가 기록되지 않았어요',
+                  style: AppTextStyles.sans(
+                      fontSize: 12, color: AppColors.mutedForeground)),
+            ),
+          // 하단 수치 — 아래에서 올라오는 어두운 그라데이션 위에 얹는다.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xF2040810), Color(0x00040810)],
+                ),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _row('시간', durStr),
-                  _row('거리', '$distanceStr km'),
-                  _row('페이스', '$paceStr /km'),
-                  _row('칼로리', kcal > 0 ? '$kcal kcal' : '-- kcal'),
+                  RichText(
+                    text: TextSpan(
+                      text: distanceStr,
+                      style: AppTextStyles.display(fontSize: 44),
+                      children: [
+                        TextSpan(
+                            text: ' km',
+                            style: AppTextStyles.display(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withAlpha(0x8C))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _HeroStat(label: 'PACE', value: paceStr, unit: '/km'),
+                      const _HeroDivider(),
+                      _HeroStat(label: 'TIME', value: durStr),
+                      const _HeroDivider(),
+                      _HeroStat(
+                          label: 'CAL',
+                          value: kcal > 0 ? '$kcal' : '--',
+                          unit: 'kcal'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // 워터마크 — 이 화면을 그대로 공유해도 출처가 남게.
+                  Text('RUN EARTH · $title',
+                      style: AppTextStyles.mono(
+                          fontSize: 8, color: Colors.white.withAlpha(0x38))),
                 ],
               ),
             ),
-            // 기록 수치는 읽기 전용이다. 수정·삭제 UI 는 두지 않는다
-            // (records.md 4 — 버튼 자체를 만들지 않는 것이 정책).
-            if (footer != null) ...[const SizedBox(height: 20), footer!],
-          ],
+          ),
+          // 상단 오버레이 — 닫기 + 뱃지.
+          Positioned(
+            left: 12,
+            right: 12,
+            top: 10,
+            child: Row(
+              children: [
+                _RoundIconButton(
+                  icon: isBack ? Icons.arrow_back : Icons.close,
+                  tooltip: isBack ? '기록 목록으로' : '닫기',
+                  onTap: onClose,
+                ),
+                const Spacer(),
+                ?headerTrailing,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 히어로 위 반투명 원형 버튼(Figma 437-450).
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withAlpha(0x80),
+            border: Border.all(color: Colors.white.withAlpha(0x26)),
+          ),
+          child: Icon(icon, size: 17, color: AppColors.foreground),
         ),
       ),
     );
   }
+}
 
-  Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({required this.label, required this.value, this.unit});
+
+  final String label;
+  final String value;
+  final String? unit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: AppTextStyles.mono(
+                fontSize: 8, color: Colors.white.withAlpha(0x66))),
+        const SizedBox(height: 3),
+        RichText(
+          text: TextSpan(
+            text: value,
+            style: AppTextStyles.display(fontSize: 20),
+            children: [
+              if (unit != null)
+                TextSpan(
+                    text: ' $unit',
+                    style: AppTextStyles.sans(
+                        fontSize: 9, color: Colors.white.withAlpha(0x73))),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroDivider extends StatelessWidget {
+  const _HeroDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      color: Colors.white.withAlpha(0x1F),
+    );
+  }
+}
+
+/// 히어로 배경 격자.
+class _HeroGridPainter extends CustomPainter {
+  const _HeroGridPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withAlpha(0x08)
+      ..strokeWidth = 1;
+    const rows = 9;
+    const cols = 7;
+    for (var i = 1; i < rows; i++) {
+      final y = size.height / rows * i;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+    for (var i = 1; i < cols; i++) {
+      final x = size.width / cols * i;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroGridPainter oldDelegate) => false;
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(text,
+          style: AppTextStyles.mono(
+              fontSize: 10, color: AppColors.mutedForeground)),
+    );
+  }
+}
+
+/// 상세 기록 6칸(Figma 585-601).
+///
+/// 평균 심박수·케이던스는 **웨어러블 데이터**라 아직 값이 없다
+/// (`wearable-sync.md`, MVP 이후). 칸을 지우지 않고 `--` 로 둔다 —
+/// 칼로리가 이미 같은 방식이고, 자리를 비워두면 연동됐을 때 레이아웃이 흔들린다.
+class _DetailGrid extends StatelessWidget {
+  const _DetailGrid({
+    required this.distanceStr,
+    required this.paceStr,
+    required this.durStr,
+    required this.kcal,
+  });
+
+  final String distanceStr;
+  final String paceStr;
+  final String durStr;
+  final int kcal;
+
+  @override
+  Widget build(BuildContext context) {
+    final cells = <({String label, String value, String unit})>[
+      (label: '총 거리', value: distanceStr, unit: 'km'),
+      (label: '평균 페이스', value: paceStr, unit: '/km'),
+      (label: '시간', value: durStr, unit: ''),
+      (label: '칼로리', value: kcal > 0 ? '$kcal' : '--', unit: 'kcal'),
+      (label: '평균 심박수', value: '--', unit: 'bpm'),
+      (label: '케이던스', value: '--', unit: 'spm'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          for (var row = 0; row < 2; row++) ...[
+            if (row > 0) const SizedBox(height: 8),
+            // Row 를 세로로 stretch 하면 스크롤뷰 안에서 높이가 무한이 되어
+            // 레이아웃이 터진다. 칸 높이를 맞추는 건 IntrinsicHeight 가 한다.
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var col = 0; col < 3; col++) ...[
+                    if (col > 0) const SizedBox(width: 8),
+                    Expanded(child: _cell(cells[row * 3 + col])),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _cell(({String label, String value, String unit}) c) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label,
+            Text(c.label,
                 style: AppTextStyles.sans(
-                    fontSize: 13, color: AppColors.mutedForeground)),
-            Text(value, style: AppTextStyles.display(fontSize: 20)),
+                    fontSize: 9, color: AppColors.mutedForeground)),
+            const SizedBox(height: 5),
+            RichText(
+              text: TextSpan(
+                text: c.value,
+                style: AppTextStyles.display(fontSize: 18),
+                children: [
+                  if (c.unit.isNotEmpty)
+                    TextSpan(
+                        text: ' ${c.unit}',
+                        style: AppTextStyles.sans(
+                            fontSize: 8, color: AppColors.mutedForeground)),
+                ],
+              ),
+            ),
           ],
         ),
       );
 }
 
-class _NoRoutePlaceholder extends StatelessWidget {
-  const _NoRoutePlaceholder();
+/// '달린 구간' — 히어로와 별개로 경로를 한 번 더, 가로로 넓게 보여준다
+/// (Figma 605-617). 히어로는 공유용 정사각 구도라 구간 모양이 눌려 보인다.
+class _RouteSection extends StatelessWidget {
+  const _RouteSection({required this.route});
+  final List<LatLngPoint> route;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.card,
-      child: Center(
-        child: Text('경로가 기록되지 않았어요',
-            style: AppTextStyles.sans(
-                fontSize: 12, color: AppColors.mutedForeground)),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 130,
+        decoration: BoxDecoration(
+          color: const Color(0xFF080C14),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: route.length >= 2
+            ? CustomPaint(
+                painter: RoutePainter(
+                  route: route,
+                  background: const Color(0xFF080C14),
+                ),
+              )
+            : Center(
+                child: Text('경로가 기록되지 않았어요',
+                    style: AppTextStyles.sans(
+                        fontSize: 11, color: AppColors.mutedForeground)),
+              ),
       ),
     );
   }
