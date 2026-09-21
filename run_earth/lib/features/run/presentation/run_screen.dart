@@ -227,19 +227,33 @@ class _Running extends StatelessWidget {
                   recording: true,
                 ),
               ),
+              // 지도 아래쪽을 카드색으로 녹여 하단 패널과 이어 붙인다(Figma).
               Positioned(
-                top: 12,
-                left: 16,
-                right: 16,
-                child: _LiveStats(
-                  distance: state.distanceStr,
-                  pace: state.paceStr,
-                  time: state.elapsedStr,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 64,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          AppColors.card,
+                          AppColors.card.withAlpha(0),
+                        ],
+                        stops: const [0.2, 1],
+                      ),
+                    ),
+                  ),
                 ),
               ),
+              // Figma 에는 없지만 run-flow.md 3장이 요구하는 표시다.
+              // 수치가 하단으로 내려가 상단이 비었으므로 위로 올린다.
               if (state.isPaused)
                 const Positioned(
-                  top: 90,
+                  top: 12,
                   left: 0,
                   right: 0,
                   child: Center(child: _PausedBadge()),
@@ -247,30 +261,64 @@ class _Running extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        // ── 하단 패널 ────────────────────────────────────────
+        DecoratedBox(
           decoration: const BoxDecoration(
             color: AppColors.card,
             border: Border(top: BorderSide(color: AppColors.border)),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: _ControlButton(
-                  label: state.isPaused ? 'RESUME' : 'PAUSE',
-                  icon: state.isPaused ? Icons.play_arrow : Icons.pause,
-                  filled: state.isPaused,
-                  onTap: onTogglePause,
-                ),
+              _LiveStats(
+                time: state.elapsedStr,
+                distance: state.distanceStr,
+                pace: state.paceStr,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ControlButton(
-                  label: 'STOP',
-                  icon: Icons.stop,
-                  danger: true,
-                  onTap: onStop,
-                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: state.isPaused
+                    ? Column(
+                        children: [
+                          _ControlButton(
+                            label: '달리기 재개',
+                            icon: Icons.play_arrow,
+                            style: _ControlStyle.gradient,
+                            onTap: onTogglePause,
+                          ),
+                          const SizedBox(height: 8),
+                          // Figma 는 일시정지 중 '재개' 하나만 두지만, 멈춰서
+                          // 숨 고르다 끝내는 흐름이 흔해 종료 경로를 남긴다.
+                          // 재개를 거쳐야만 끝낼 수 있으면 막다른 길이 된다
+                          // (2026-09-21 사용자 결정).
+                          _ControlButton(
+                            label: '종료',
+                            icon: Icons.stop,
+                            style: _ControlStyle.danger,
+                            onTap: onStop,
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: _ControlButton(
+                              label: '일시정지',
+                              icon: Icons.pause,
+                              style: _ControlStyle.outline,
+                              onTap: onTogglePause,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _ControlButton(
+                              label: '종료',
+                              icon: Icons.stop,
+                              style: _ControlStyle.danger,
+                              onTap: onStop,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -344,6 +392,9 @@ class _RunMapState extends State<_RunMap> {
         Positioned.fill(
           child: GoogleMap(
             initialCameraPosition: CameraPosition(target: initial, zoom: 17),
+            // 하단 페이드가 구글 로고를 덮지 않게 지도 안쪽 여백을 준다 —
+            // 지도 표시 약관상 로고는 가리면 안 된다.
+            padding: const EdgeInsets.only(bottom: 56),
             onMapCreated: (ctrl) {
               _controller = ctrl;
               // style 파라미터는 최신 렌더러에서만 먹으므로, 구형 LEGACY
@@ -434,29 +485,122 @@ const String _darkMapStyle = '''
 ''';
 
 // ── countdown overlay ─────────────────────────────────────────
-class _CountdownOverlay extends StatelessWidget {
+/// 카운트다운 — 숫자 네온 글로우 3겹 + 뒤에서 퍼지는 펄스 링 2개(Figma).
+///
+/// Figma 는 0 에서 `GO!` 를 700ms 보여주지만 넣지 않았다 — 트래커가
+/// 1 다음 바로 running 으로 넘어가서, 넣으려면 상태 머신에 단계를 하나
+/// 더 만들고 시작을 0.7초 늦춰야 한다. 화면이 아니라 로직 변경이다.
+class _CountdownOverlay extends StatefulWidget {
   const _CountdownOverlay({required this.count});
   final int count;
+
+  @override
+  State<_CountdownOverlay> createState() => _CountdownOverlayState();
+}
+
+class _CountdownOverlayState extends State<_CountdownOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 950),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: ColoredBox(
         color: Colors.black,
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (child, anim) =>
-                ScaleTransition(scale: anim, child: child),
-            child: Text(
-              '$count',
-              key: ValueKey(count),
-              style:
-                  AppTextStyles.display(fontSize: 140, color: AppColors.primary),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            _PulseRing(
+              controller: _pulse,
+              size: 200,
+              color: const Color(0x3000E87A),
+              maxScale: 1.5,
+              maxOpacity: 0.3,
             ),
-          ),
+            _PulseRing(
+              controller: _pulse,
+              size: 280,
+              color: const Color(0x1500E87A),
+              maxScale: 1.4,
+              maxOpacity: 0.2,
+              delay: 0.2,
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: Text(
+                '${widget.count}',
+                key: ValueKey(widget.count),
+                style: AppTextStyles.display(
+                  fontSize: 140,
+                  color: AppColors.primary,
+                ).copyWith(shadows: const [
+                  Shadow(color: Color(0xFF00E87A), blurRadius: 40),
+                  Shadow(color: Color(0x6000E87A), blurRadius: 90),
+                  Shadow(color: Color(0x3000E87A), blurRadius: 160),
+                ]),
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+/// 숫자 뒤에서 커졌다 옅어지는 링. 두 개가 시차를 두고 돈다.
+class _PulseRing extends StatelessWidget {
+  const _PulseRing({
+    required this.controller,
+    required this.size,
+    required this.color,
+    required this.maxScale,
+    required this.maxOpacity,
+    this.delay = 0,
+  });
+
+  final AnimationController controller;
+  final double size;
+  final Color color;
+  final double maxScale;
+  final double maxOpacity;
+
+  /// 0~1 회 단위 시차. 두 링이 겹쳐 보이지 않게 한다.
+  final double delay;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final t = (controller.value + delay) % 1.0;
+        // 0 → 1 → 0. 커졌다 제자리로 돌아오며 그 사이 투명해진다.
+        final p = t < 0.5 ? t * 2 : (1 - t) * 2;
+        return Opacity(
+          opacity: maxOpacity * (1 - p),
+          child: Transform.scale(
+            scale: 1 + (maxScale - 1) * p,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: color),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -491,12 +635,21 @@ class _StopConfirm extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _ControlButton(label: '아니요', onTap: onCancel),
+                      child: _ControlButton(
+                        label: '아니요',
+                        style: _ControlStyle.ghost,
+                        dense: true,
+                        onTap: onCancel,
+                      ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _ControlButton(
-                          label: '네', filled: true, onTap: onConfirm),
+                        label: '네',
+                        style: _ControlStyle.gradient,
+                        dense: true,
+                        onTap: onConfirm,
+                      ),
                     ),
                   ],
                 ),
@@ -726,54 +879,86 @@ class _MiniCard extends StatelessWidget {
   }
 }
 
+/// 달리는 중 하단 패널의 3열 수치 — Figma 순서는 **시간 → 거리 → 페이스**다.
+/// 거리만 네온그린이라 눈이 먼저 가고, 나머지는 보조로 읽힌다.
+///
+/// Figma 는 시간 뒤에 `.43`(1/100초)을 작게 붙이지만 **넣지 않는다.**
+/// 그리려면 달리는 내내 50ms 타이머로 다시 그려야 하는데, 포그라운드
+/// 서비스로 몇십 분씩 도는 화면이라 배터리 값이 얻는 것보다 크다
+/// (2026-09-21 사용자 결정).
 class _LiveStats extends StatelessWidget {
-  const _LiveStats(
-      {required this.distance, required this.pace, required this.time});
+  const _LiveStats({
+    required this.time,
+    required this.distance,
+    required this.pace,
+  });
+
+  final String time;
   final String distance;
   final String pace;
-  final String time;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.black.withAlpha(0x80),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withAlpha(0x14)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _item('거리', distance, 'km'),
-          _item('페이스', pace, '/km'),
-          _item('시간', time, ''),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 12),
+      // 구분선이 세 칸 중 가장 높은 칸만큼 늘어나야 해서 높이를 먼저 잰다.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _item('시간', time)),
+            const _StatDivider(),
+            Expanded(
+              child: _item('거리', distance,
+                  unit: 'km', color: AppColors.primary),
+            ),
+            const _StatDivider(),
+            Expanded(child: _item('페이스', pace, unit: '/km')),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _item(String label, String value, String unit) => Column(
-        children: [
-          Text(label,
-              style: AppTextStyles.sans(
-                  fontSize: 9, color: AppColors.mutedForeground)),
-          const SizedBox(height: 2),
-          RichText(
-            text: TextSpan(
-              text: value,
-              style: AppTextStyles.display(fontSize: 22),
-              children: [
-                if (unit.isNotEmpty)
-                  TextSpan(
-                      text: ' $unit',
-                      style: AppTextStyles.sans(
-                          fontSize: 9, color: AppColors.mutedForeground)),
-              ],
+  Widget _item(
+    String label,
+    String value, {
+    String? unit,
+    Color color = AppColors.foreground,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: AppTextStyles.sans(
+                    fontSize: 9, color: AppColors.mutedForeground)),
+            const SizedBox(height: 6),
+            // 한 시간을 넘기면 "1:02:33" 이 되어 한 칸 폭을 넘길 수 있다.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(value,
+                  style: AppTextStyles.display(fontSize: 32, color: color)),
             ),
-          ),
-        ],
+            if (unit != null) ...[
+              const SizedBox(height: 3),
+              Text(unit,
+                  style: AppTextStyles.mono(
+                      fontSize: 9, color: AppColors.mutedForeground)),
+            ],
+          ],
+        ),
       );
+}
+
+/// 수치 칸 사이 세로 구분선.
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      const VerticalDivider(width: 1, thickness: 1, color: AppColors.border);
 }
 
 class _StartButton extends StatelessWidget {
@@ -811,56 +996,103 @@ class _StartButton extends StatelessWidget {
   }
 }
 
+/// 버튼 꼴(Figma).
+enum _ControlStyle {
+  /// 일시정지 — 어두운 채움 + 외곽선
+  outline,
+
+  /// 종료 — 빨강 반투명
+  danger,
+
+  /// 재개·확인 — 네온 그라데이션
+  gradient,
+
+  /// 취소 — 배경 없이 외곽선만, 글자도 흐리게
+  ghost,
+}
+
 class _ControlButton extends StatelessWidget {
   const _ControlButton({
     required this.label,
     this.icon,
-    this.filled = false,
-    this.danger = false,
+    required this.style,
     required this.onTap,
+    this.dense = false,
   });
 
   final String label;
   final IconData? icon;
-  final bool filled;
-  final bool danger;
+  final _ControlStyle style;
   final VoidCallback onTap;
+
+  /// 팝업 안처럼 세로 여유가 없는 자리에서 한 단계 작게.
+  final bool dense;
+
+  /// 배경·테두리는 순수 빨강에서, 글자는 한 단계 밝은 값에서 온다 —
+  /// 어두운 반투명 위에서 #EF4444 는 읽기 어렵다(Figma 도 같은 두 값).
+  static const _dangerBase = Color(0xFFEF4444);
+  static const _dangerText = Color(0xFFF87171);
 
   @override
   Widget build(BuildContext context) {
-    final Color fg = danger
-        ? const Color(0xFFEF4444)
-        : filled
-            ? Colors.black
-            : AppColors.foreground;
-    return Material(
-      color: filled ? AppColors.primary : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: filled
-                ? null
-                : Border.all(
-                    color: danger
-                        ? const Color(0xFFEF4444).withAlpha(0x66)
-                        : AppColors.border),
+    final bool gradient = style == _ControlStyle.gradient;
+    final Color fg = switch (style) {
+      _ControlStyle.gradient => Colors.black,
+      _ControlStyle.danger => _dangerText,
+      _ControlStyle.outline => AppColors.foreground,
+      _ControlStyle.ghost => AppColors.mutedForeground,
+    };
+    final BoxDecoration decoration = switch (style) {
+      _ControlStyle.gradient => BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF00E87A), Color(0xFF00C060)],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: fg),
-                const SizedBox(width: 6),
+        ),
+      _ControlStyle.danger => BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: _dangerBase.withAlpha(0x1F),
+          border: Border.all(color: _dangerBase.withAlpha(0x4D)),
+        ),
+      _ControlStyle.outline => BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFF161923),
+          border: Border.all(color: AppColors.border),
+        ),
+      _ControlStyle.ghost => BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+    };
+
+    return DecoratedBox(
+      decoration: decoration,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                vertical: dense ? 12 : (gradient ? 16 : 14)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: fg),
+                  const SizedBox(width: 6),
+                ],
+                // 라벨이 한글이라 Barlow Condensed(Figma)는 못 쓴다 —
+                // 한글 글리프가 없어 폴백되면 자간만 어색해진다.
+                Text(label,
+                    style: AppTextStyles.sans(
+                        fontSize: (gradient && !dense) ? 16 : 14,
+                        fontWeight: FontWeight.w700,
+                        color: fg)),
               ],
-              Text(label,
-                  style: AppTextStyles.display(
-                      fontSize: 16, color: fg, letterSpacing: 0.5)),
-            ],
+            ),
           ),
         ),
       ),
