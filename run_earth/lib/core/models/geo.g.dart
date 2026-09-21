@@ -9,7 +9,12 @@ part of 'geo.dart';
 _LatLngPoint _$LatLngPointFromJson(Map<String, dynamic> json) => _LatLngPoint(
   lat: (json['lat'] as num).toDouble(),
   lng: (json['lng'] as num).toDouble(),
+  t: (json['t'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$LatLngPointToJson(_LatLngPoint instance) =>
-    <String, dynamic>{'lat': instance.lat, 'lng': instance.lng};
+    <String, dynamic>{
+      'lat': instance.lat,
+      'lng': instance.lng,
+      't': instance.t,
+    };

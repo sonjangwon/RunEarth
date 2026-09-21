@@ -267,7 +267,13 @@ class RunTracker extends Notifier<RunSessionState> {
   }
 
   void _onPosition(Position pos) {
-    final point = LatLngPoint(lat: pos.latitude, lng: pos.longitude);
+    // 시각은 기기 시계(DateTime.now())가 아니라 **위치 fix 시각**을 쓴다 —
+    // 좌표가 화면까지 오는 데 걸린 지연이 구간 페이스에 섞이지 않는다.
+    final point = LatLngPoint(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      t: pos.timestamp.toUtc().millisecondsSinceEpoch,
+    );
 
     // 지도와 'GPS 대기' 배지가 보는 현재 위치는 **항상** 갱신한다.
     // 아래 누적 조건에 걸려 걸러지더라도 화면은 살아 있어야 한다.

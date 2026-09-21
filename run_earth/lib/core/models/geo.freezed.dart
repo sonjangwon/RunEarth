@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$LatLngPoint {
 
- double get lat; double get lng;
+ double get lat; double get lng; int? get t;
 /// Create a copy of LatLngPoint
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +29,16 @@ $LatLngPointCopyWith<LatLngPoint> get copyWith => _$LatLngPointCopyWithImpl<LatL
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LatLngPoint&&(identical(other.lat, lat) || other.lat == lat)&&(identical(other.lng, lng) || other.lng == lng));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LatLngPoint&&(identical(other.lat, lat) || other.lat == lat)&&(identical(other.lng, lng) || other.lng == lng)&&(identical(other.t, t) || other.t == t));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,lat,lng);
+int get hashCode => Object.hash(runtimeType,lat,lng,t);
 
 @override
 String toString() {
-  return 'LatLngPoint(lat: $lat, lng: $lng)';
+  return 'LatLngPoint(lat: $lat, lng: $lng, t: $t)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $LatLngPointCopyWith<$Res>  {
   factory $LatLngPointCopyWith(LatLngPoint value, $Res Function(LatLngPoint) _then) = _$LatLngPointCopyWithImpl;
 @useResult
 $Res call({
- double lat, double lng
+ double lat, double lng, int? t
 });
 
 
@@ -66,11 +66,12 @@ class _$LatLngPointCopyWithImpl<$Res>
 
 /// Create a copy of LatLngPoint
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? lat = null,Object? lng = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? lat = null,Object? lng = null,Object? t = freezed,}) {
   return _then(LatLngPoint(
 lat: null == lat ? _self.lat : lat // ignore: cast_nullable_to_non_nullable
 as double,lng: null == lng ? _self.lng : lng // ignore: cast_nullable_to_non_nullable
-as double,
+as double,t: freezed == t ? _self.t : t // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -155,10 +156,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double lat,  double lng)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double lat,  double lng,  int? t)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LatLngPoint() when $default != null:
-return $default(_that.lat,_that.lng);case _:
+return $default(_that.lat,_that.lng,_that.t);case _:
   return orElse();
 
 }
@@ -176,10 +177,10 @@ return $default(_that.lat,_that.lng);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double lat,  double lng)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double lat,  double lng,  int? t)  $default,) {final _that = this;
 switch (_that) {
 case _LatLngPoint():
-return $default(_that.lat,_that.lng);case _:
+return $default(_that.lat,_that.lng,_that.t);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -196,10 +197,10 @@ return $default(_that.lat,_that.lng);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double lat,  double lng)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double lat,  double lng,  int? t)?  $default,) {final _that = this;
 switch (_that) {
 case _LatLngPoint() when $default != null:
-return $default(_that.lat,_that.lng);case _:
+return $default(_that.lat,_that.lng,_that.t);case _:
   return null;
 
 }
@@ -211,11 +212,12 @@ return $default(_that.lat,_that.lng);case _:
 @JsonSerializable()
 
 class _LatLngPoint implements LatLngPoint {
-  const _LatLngPoint({required this.lat, required this.lng});
+  const _LatLngPoint({required this.lat, required this.lng, this.t});
   factory _LatLngPoint.fromJson(Map<String, dynamic> json) => _$LatLngPointFromJson(json);
 
 @override final  double lat;
 @override final  double lng;
+@override final  int? t;
 
 /// Create a copy of LatLngPoint
 /// with the given fields replaced by the non-null parameter values.
@@ -230,16 +232,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LatLngPoint&&(identical(other.lat, lat) || other.lat == lat)&&(identical(other.lng, lng) || other.lng == lng));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LatLngPoint&&(identical(other.lat, lat) || other.lat == lat)&&(identical(other.lng, lng) || other.lng == lng)&&(identical(other.t, t) || other.t == t));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,lat,lng);
+int get hashCode => Object.hash(runtimeType,lat,lng,t);
 
 @override
 String toString() {
-  return 'LatLngPoint(lat: $lat, lng: $lng)';
+  return 'LatLngPoint(lat: $lat, lng: $lng, t: $t)';
 }
 
 
@@ -250,7 +252,7 @@ abstract mixin class _$LatLngPointCopyWith<$Res> implements $LatLngPointCopyWith
   factory _$LatLngPointCopyWith(_LatLngPoint value, $Res Function(_LatLngPoint) _then) = __$LatLngPointCopyWithImpl;
 @override @useResult
 $Res call({
- double lat, double lng
+ double lat, double lng, int? t
 });
 
 
@@ -267,11 +269,12 @@ class __$LatLngPointCopyWithImpl<$Res>
 
 /// Create a copy of LatLngPoint
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? lat = null,Object? lng = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? lat = null,Object? lng = null,Object? t = freezed,}) {
   return _then(_LatLngPoint(
 lat: null == lat ? _self.lat : lat // ignore: cast_nullable_to_non_nullable
 as double,lng: null == lng ? _self.lng : lng // ignore: cast_nullable_to_non_nullable
-as double,
+as double,t: freezed == t ? _self.t : t // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

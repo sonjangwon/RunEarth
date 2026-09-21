@@ -68,6 +68,8 @@ type ThemeRun = {
   km: number;
   img: string;
   courseRoute: { lat: number; lng: number }[];  // 신규 — 사전 정의 경로,
+  // ↑ 러닝 경로(`run-flow.md` 6-1)와 같은 좌표 타입을 쓴다. 그쪽에만 있는
+  //   시각 `t` 는 코스 좌표에서는 비워 둔다 — 미리 그어둔 선이라 시각이 없다.
                                                   // 러닝 중 오버레이 렌더링용
 };
 ```
