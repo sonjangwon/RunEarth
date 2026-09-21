@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/km_splits.dart';
 import 'route_painter.dart';
 
 /// 닫기 버튼 모양. 기능정의서 5 `RunDetailView.closeIcon`.
@@ -89,6 +90,8 @@ class RunDetailView extends StatelessWidget {
           _SectionLabel('달린 구간'),
           const SizedBox(height: 8),
           _RouteSection(route: route),
+          // 구간별 페이스 — 좌표에 시간이 없는 예전 기록에서는 통째로 빠진다.
+          _SplitsSection(route: route),
           // 기록 수치는 읽기 전용이다. 수정·삭제 UI 는 두지 않는다
           // (records.md 4 — 버튼 자체를 만들지 않는 것이 정책).
           if (footer != null) ...[
@@ -470,6 +473,127 @@ class _DetailGrid extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// '구간별 페이스' — 1km 마다 얼마나 걸렸나. 막대는 **빠를수록 길다**(Figma).
+///
+/// 좌표에 시간이 없는 기록(2026-09-21 이전)에서는 계산이 안 되므로
+/// **섹션째 그리지 않는다** — 빈 카드를 남기면 고장난 것처럼 보인다.
+class _SplitsSection extends StatelessWidget {
+  const _SplitsSection({required this.route});
+
+  final List<LatLngPoint> route;
+
+  @override
+  Widget build(BuildContext context) {
+    final splits = computeKmSplits(route);
+    if (splits.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 18),
+        _SectionLabel('구간별 페이스'),
+        const SizedBox(height: 8),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < splits.length; i++) ...[
+                if (i > 0)
+                  const Divider(height: 1, color: AppColors.border),
+                _SplitRow(split: splits[i], ratio: splitBarRatio(splits[i], splits)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SplitRow extends StatelessWidget {
+  const _SplitRow({required this.split, required this.ratio});
+
+  final KmSplit split;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 46,
+            child: RichText(
+              text: TextSpan(
+                text: split.kmLabel,
+                style: AppTextStyles.mono(
+                    fontSize: 10, color: AppColors.mutedForeground),
+                children: [
+                  TextSpan(
+                      text: ' km',
+                      style: AppTextStyles.mono(
+                          fontSize: 8, color: AppColors.mutedForeground)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: SizedBox(
+                height: 6,
+                child: Stack(
+                  children: [
+                    const Positioned.fill(
+                      child: ColoredBox(color: AppColors.muted),
+                    ),
+                    // Positioned.fill + heightFactor 로 **꽉 찬 제약**을 준다.
+                    // 그냥 Stack 자식으로 두면 자식 없는 DecoratedBox 가
+                    // 느슨한 제약에서 0×0 으로 접혀 막대가 안 보인다
+                    // (2026-09-20 노트 §12 와 같은 함정).
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: ratio,
+                          heightFactor: 1,
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF00A854), AppColors.primary],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 46,
+            child: Text(split.paceLabel,
+                textAlign: TextAlign.right,
+                style: AppTextStyles.mono(
+                    fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// '달린 구간' — 히어로와 별개로 경로를 한 번 더, 가로로 넓게 보여준다

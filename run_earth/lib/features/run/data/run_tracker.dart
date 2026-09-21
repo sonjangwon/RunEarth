@@ -273,6 +273,9 @@ class RunTracker extends Notifier<RunSessionState> {
       lat: pos.latitude,
       lng: pos.longitude,
       t: pos.timestamp.toUtc().millisecondsSinceEpoch,
+      // 일시정지 시간이 빠진 누적 시간. 구간 페이스는 이걸로 낸다 —
+      // 벽시계(t)로 내면 쉰 시간이 그 구간에 통째로 얹힌다.
+      e: state.elapsed.inMilliseconds,
     );
 
     // 지도와 'GPS 대기' 배지가 보는 현재 위치는 **항상** 갱신한다.
