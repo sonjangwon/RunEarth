@@ -45,17 +45,18 @@ abstract final class AppColors {
   static Color badgeBackground(Color base) => base.withAlpha(0x18);
 
   // ── 미세먼지 4단계 (4-2 섹션 B) ────────────────────────────
-  // 에어코리아 표준 색계를 따른다(2026-09-20 확정) — 기상·대기 앱 어디서나
-  // 같은 의미로 쓰여 사용자가 새로 배울 게 없다. 네 색 모두 기존 토큰과
-  // 같은 값이라 팔레트가 늘어나지도 않는다.
-  /// 좋음 — 파랑(러닝 타입 '테마' 와 같은 값)
-  static const dustGood = typeTheme;
+  // Figma 정본 색을 따른다(2026-09-20 결정 ②, figma-alignment.md).
+  // 같은 날 잠깐 정했던 에어코리아 표준 색계(좋음=파랑)는 폐기됐다 —
+  // 그 색으로는 '좋음'이 파랑, '보통'이 네온그린이라 앱의 주색(네온그린 =
+  // 좋다)과 뜻이 어긋났다. Figma 는 좋음부터 네온그린으로 간다.
+  /// 좋음 — 네온 그린
+  static const dustGood = primary;
 
-  /// 보통 — 네온 그린
-  static const dustModerate = primary;
+  /// 보통 — 앰버
+  static const dustModerate = Color(0xFFF59E0B);
 
   /// 나쁨 — 오렌지
-  static const dustBad = accent;
+  static const dustBad = Color(0xFFF97316);
 
   /// 매우나쁨 — 빨강(스트릭 7일과 같은 값)
   static const dustVeryBad = Color(0xFFEF4444);
