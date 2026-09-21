@@ -71,6 +71,8 @@ class _ContentScreenState extends State<ContentScreen> {
   }
 }
 
+/// 테마/마라톤 전환 — Figma 는 pill 두 개가 아니라 한 덩어리 세그먼트다.
+/// 선택된 쪽이 카드색으로 떠오르고 나머지는 배경에 잠긴다.
 class _SubTabBar extends StatelessWidget {
   const _SubTabBar({required this.tab, required this.onChanged});
   final _ContentTab tab;
@@ -80,35 +82,51 @@ class _SubTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          _pill('테마 러닝', tab == _ContentTab.theme,
-              () => onChanged(_ContentTab.theme)),
-          const SizedBox(width: 8),
-          _pill('온라인 마라톤', tab == _ContentTab.marathon,
-              () => onChanged(_ContentTab.marathon)),
-        ],
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: AppColors.muted,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _segment('테마 러닝', tab == _ContentTab.theme,
+                  () => onChanged(_ContentTab.theme)),
+            ),
+            const SizedBox(width: 2),
+            Expanded(
+              child: _segment('온라인 마라톤', tab == _ContentTab.marathon,
+                  () => onChanged(_ContentTab.marathon)),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _pill(String label, bool sel, VoidCallback onTap) => GestureDetector(
+  Widget _segment(String label, bool sel, VoidCallback onTap) =>
+      GestureDetector(
         onTap: onTap,
+        // 빈 곳을 눌러도 잡히게 — 세그먼트는 칸 전체가 버튼이다.
+        behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: sel
-                ? AppColors.badgeBackground(AppColors.primary)
-                : AppColors.muted,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-                color: sel ? AppColors.primary : AppColors.border),
+            color: sel ? AppColors.card : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: sel ? Border.all(color: AppColors.border) : null,
           ),
-          child: Text(label,
-              style: AppTextStyles.sans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: sel ? AppColors.primary : AppColors.mutedForeground)),
+          child: Center(
+            child: Text(label,
+                style: AppTextStyles.sans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: sel
+                        ? AppColors.foreground
+                        : AppColors.mutedForeground)),
+          ),
         ),
       );
 }
@@ -141,81 +159,91 @@ class _ThemeCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 120,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
-          gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFF141A2A), Color(0xFF0C1018)],
-          ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (run.img.isNotEmpty)
-              Positioned.fill(
-                child: Image.network(
-                  unsplashUrl(run.img, w: 600, h: 240),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ),
-            // 텍스트 가독성용 어두운 스크림.
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Colors.black.withAlpha(0xD9),
-                      Colors.black.withAlpha(0x40),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -8,
-              top: -10,
-              child: Text(run.emoji,
-                  style: TextStyle(
-                      fontSize: 90,
-                      color: Colors.white.withAlpha(0x14))),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // 사진 위에는 이모지와 이름만 얹는다. 설명·거리는 아래 줄로
+            // 내려가서, 사진이 글자에 가려지지 않는다(Figma).
+            SizedBox(
+              height: 80,
+              child: Stack(
                 children: [
-                  Row(
-                    children: [
-                      Text(run.emoji, style: const TextStyle(fontSize: 22)),
-                      const SizedBox(width: 8),
-                      Text(run.name,
-                          style: AppTextStyles.display(fontSize: 20)),
-                    ],
+                  Positioned.fill(
+                    child: ColoredBox(color: AppColors.muted),
                   ),
-                  Text(run.desc,
-                      style: AppTextStyles.sans(
-                          fontSize: 12, color: AppColors.mutedForeground)),
-                  RichText(
-                    text: TextSpan(
-                      text: '${run.km}',
-                      style: AppTextStyles.display(
-                          fontSize: 18, color: AppColors.primary),
+                  if (run.img.isNotEmpty)
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: 0.6,
+                        child: Image.network(
+                          unsplashUrl(run.img, w: 500, h: 160),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  // 왼쪽만 어둡게 — 글자가 놓이는 쪽이다.
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.black.withAlpha(0xB3),
+                            Colors.black.withAlpha(0x4D),
+                            Colors.transparent,
+                          ],
+                          stops: const [0, 0.5, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 12,
+                    child: Row(
                       children: [
-                        TextSpan(
-                            text: ' km',
+                        Text(run.emoji, style: const TextStyle(fontSize: 20)),
+                        const SizedBox(width: 6),
+                        Text(run.name,
                             style: AppTextStyles.sans(
-                                fontSize: 10,
-                                color: AppColors.mutedForeground)),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(run.desc,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.sans(
+                            fontSize: 10,
+                            color: AppColors.mutedForeground)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('${run.km}km',
+                      style: AppTextStyles.mono(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary)),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.chevron_right,
+                      size: 14, color: AppColors.mutedForeground),
                 ],
               ),
             ),
@@ -424,7 +452,7 @@ class _MarathonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
@@ -434,30 +462,26 @@ class _MarathonCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 히어로
+          // ── 히어로 ──────────────────────────────────────────
           SizedBox(
             height: 96,
             child: Stack(
               children: [
                 const Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [Color(0xFF16233A), Color(0xFF0C1018)],
-                      ),
-                    ),
-                  ),
+                  child: ColoredBox(color: AppColors.muted),
                 ),
                 if (m.img.isNotEmpty)
                   Positioned.fill(
-                    child: Image.network(
-                      unsplashUrl(m.img, w: 600, h: 200),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    child: Opacity(
+                      opacity: 0.7,
+                      child: Image.network(
+                        unsplashUrl(m.img, w: 600, h: 200),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
                     ),
                   ),
+                // 왼쪽이 가장 어둡다 — 글자가 다 왼쪽에 있다.
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -465,72 +489,118 @@ class _MarathonCard extends StatelessWidget {
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: [
-                          Colors.black.withAlpha(0xD9),
-                          Colors.black.withAlpha(0x40),
+                          AppColors.background.withAlpha(0xEB),
+                          AppColors.background.withAlpha(0x99),
+                          AppColors.background.withAlpha(0x26),
                         ],
+                        stops: const [0, 0.55, 1],
                       ),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('📍 ${m.location}',
-                        style: AppTextStyles.sans(
-                            fontSize: 10, color: AppColors.mutedForeground)),
-                    const SizedBox(height: 4),
-                    Text(m.name, style: AppTextStyles.display(fontSize: 18)),
-                    const SizedBox(height: 2),
-                    Text('${m.distance} · ${m.course}',
-                        style: AppTextStyles.sans(
-                            fontSize: 11, color: AppColors.mutedForeground)),
-                  ],
-                ),
-                _DdayBadge(dday: m.dday, ended: m.ended),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.place_outlined,
+                              size: 10, color: Colors.white.withAlpha(0x99)),
+                          const SizedBox(width: 4),
+                          Text(m.location,
+                              style: AppTextStyles.mono(
+                                  fontSize: 9,
+                                  color: Colors.white.withAlpha(0x99))),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(m.name,
+                                    style: AppTextStyles.display(fontSize: 18)),
+                                const SizedBox(height: 2),
+                                Text('목표 ${m.distance} · ${m.course}',
+                                    style: AppTextStyles.sans(
+                                        fontSize: 9,
+                                        color: Colors.white.withAlpha(0x99))),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _DdayBadge(dday: m.dday, ended: m.ended),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // ── 통계행 — 참여자 수와 내 순위 ────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Text('👤 ${m.participants}명 참여 중',
-                        style: AppTextStyles.sans(
-                            fontSize: 11, color: AppColors.mutedForeground)),
-                    const Spacer(),
-                    Text('${m.prizeEmoji} ${m.prize}',
-                        style: AppTextStyles.sans(
-                            fontSize: 11, color: AppColors.foreground)),
-                  ],
-                ),
-                if (m.joined && m.myRank != null) ...[
-                  const SizedBox(height: 8),
-                  Text('🏆 ${m.myRank} · ${m.myTime}',
-                      style: AppTextStyles.sans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.typeOnline)),
+                const Icon(Icons.person_outline,
+                    size: 11, color: AppColors.mutedForeground),
+                const SizedBox(width: 4),
+                Text('${m.participants}명 참여 중',
+                    style: AppTextStyles.mono(
+                        fontSize: 9, color: AppColors.mutedForeground)),
+                const Spacer(),
+                if (m.myRank != null && m.myTime != null) ...[
+                  Icon(Icons.emoji_events_outlined,
+                      size: 11,
+                      color:
+                          m.ended ? AppColors.typeOnline : AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text('${m.myRank} ${m.myTime}',
+                      style: AppTextStyles.mono(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: m.ended
+                              ? AppColors.typeOnline
+                              : AppColors.primary)),
                 ],
-                const SizedBox(height: 12),
-                _MarathonCta(m),
+              ],
+            ),
+          ),
+          // ── 상품 + 참여 버튼 ────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Row(
+              children: [
+                Text(m.prizeEmoji, style: const TextStyle(fontSize: 11)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(m.prize,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.sans(
+                          fontSize: 9, color: AppColors.mutedForeground)),
+                ),
+                if (!m.ended) ...[
+                  const SizedBox(width: 8),
+                  _MarathonCta(m),
+                ],
               ],
             ),
           ),
         ],
       ),
     );
+
+    // 끝난 대회는 카드째 물러나 있는다 — 목록에서 지우지는 않는다.
+    return m.ended ? Opacity(opacity: 0.6, child: card) : card;
   }
 }
 
@@ -560,34 +630,34 @@ class _MarathonCta extends StatelessWidget {
   const _MarathonCta(this.m);
   final Marathon m;
 
+  /// 참여 전은 옅은 네온 테두리, 참여 중은 꽉 찬 네온 — 이미 들어간 대회가
+  /// 한눈에 도드라진다(Figma). 종료된 대회에는 아예 붙지 않는다.
   @override
   Widget build(BuildContext context) {
-    if (m.ended) {
-      return _button('종료됨', AppColors.muted, AppColors.mutedForeground, null);
-    }
-    if (m.joined) {
-      return _button('참여 중', AppColors.muted, AppColors.mutedForeground, null);
-    }
-    return _button('참가하기', AppColors.primary, Colors.black, () {});
-  }
-
-  Widget _button(String label, Color bg, Color fg, VoidCallback? onTap) =>
-      SizedBox(
-        width: double.infinity,
-        child: Material(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Text(label,
-                    style: AppTextStyles.display(fontSize: 15, color: fg)),
-              ),
-            ),
+    final joined = m.joined;
+    return Material(
+      color: joined
+          ? AppColors.primary
+          : AppColors.primary.withAlpha(0x1F),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () {},
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: joined
+                ? null
+                : Border.all(color: AppColors.primary.withAlpha(0x35)),
           ),
+          child: Text(joined ? '참여 중 ✓' : '참여하기',
+              style: AppTextStyles.sans(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: joined ? Colors.black : AppColors.primary)),
         ),
-      );
+      ),
+    );
+  }
 }
