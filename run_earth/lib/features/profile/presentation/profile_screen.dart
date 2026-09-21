@@ -22,14 +22,17 @@ class ProfileScreen extends StatelessWidget {
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: const [
-            _UserCard(),
-            SizedBox(height: 16),
-            _StatsRow(),
-            SizedBox(height: 16),
-            _BadgeCollection(),
-            SizedBox(height: 16),
-            _SettingsSection(),
+          children: [
+            // 다른 탭('내 기록'·'콘텐츠')엔 다 있는데 여기만 빠져 있었다.
+            Text('프로필', style: AppTextStyles.display(fontSize: 24)),
+            const SizedBox(height: 12),
+            const _UserCard(),
+            const SizedBox(height: 16),
+            const _StatsRow(),
+            const SizedBox(height: 16),
+            const _BadgeCollection(),
+            const SizedBox(height: 16),
+            const _SettingsSection(),
           ],
         ),
       ),
@@ -45,41 +48,86 @@ class _UserCard extends ConsumerWidget {
     final user = ref.watch(currentAppUserProvider).valueOrNull;
     final name = user?.name ?? sessionDisplayName();
     final avatarUrl = user?.avatar ?? '';
-    return Row(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          alignment: Alignment.center,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.muted,
-            border: Border.all(color: AppColors.border),
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Stack(
+        children: [
+          // 오른쪽 위 모서리에서 번지는 옅은 네온(Figma).
+          Positioned(
+            top: -24,
+            right: -24,
+            child: IgnorePointer(
+              child: Container(
+                width: 128,
+                height: 128,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.primary.withAlpha(0x14),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          child: avatarUrl.isEmpty
-              ? const Text(profileAvatar, style: TextStyle(fontSize: 26))
-              : Image.network(
-                  avatarUrl,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
                   width: 56,
                   height: 56,
-                  fit: BoxFit.cover,
-                  // 소셜 프로필 URL 은 만료될 수 있다 → 이모지로 조용히 폴백.
-                  errorBuilder: (_, _, _) =>
-                      const Text(profileAvatar, style: TextStyle(fontSize: 26)),
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    // Figma 는 원이 아니라 사각 라운드다.
+                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.muted,
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: avatarUrl.isEmpty
+                      ? const Text(profileAvatar,
+                          style: TextStyle(fontSize: 26))
+                      : Image.network(
+                          avatarUrl,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          // 소셜 프로필 URL 은 만료될 수 있다 → 이모지로 조용히 폴백.
+                          errorBuilder: (_, _, _) => const Text(profileAvatar,
+                              style: TextStyle(fontSize: 26)),
+                        ),
                 ),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(name, style: AppTextStyles.display(fontSize: 24)),
-            Text('Run Earth',
-                style: AppTextStyles.mono(
-                    fontSize: 11, color: AppColors.mutedForeground)),
-          ],
-        ),
-      ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.display(fontSize: 22)),
+                      const SizedBox(height: 2),
+                      Text('Run Earth',
+                          style: AppTextStyles.sans(
+                              fontSize: 10,
+                              color: AppColors.mutedForeground)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -139,13 +187,18 @@ class _BadgeCollection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 누적 거리로 계산된 여정 마일스톤 배지(badges.md 3).
+    //
+    // Figma 는 배지를 세 분류(여정 마일스톤·테마 코스·온라인 마라톤)로 나눠
+    // 보여주지만 **아직 나누지 않는다** — 발급되는 배지가 마일스톤뿐이라
+    // 나누면 빈 그룹 둘이 그대로 노출된다. 테마·마라톤 배지 발급이
+    // 붙을 때 함께 한다(2026-09-21 결정).
     final badges = ref.watch(milestoneBadgesProvider);
     final earned = badges.where((b) => b.earned).length;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -154,12 +207,19 @@ class _BadgeCollection extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('배지 컬렉션',
-                  style: AppTextStyles.sans(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
+              Row(
+                children: [
+                  const Icon(Icons.workspace_premium_outlined,
+                      size: 14, color: AppColors.primary),
+                  const SizedBox(width: 5),
+                  Text('배지 컬렉션',
+                      style: AppTextStyles.sans(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
               Text('$earned / ${badges.length} 획득',
                   style: AppTextStyles.mono(
-                      fontSize: 11, color: AppColors.primary)),
+                      fontSize: 10, color: AppColors.mutedForeground)),
             ],
           ),
           const SizedBox(height: 12),
@@ -168,7 +228,9 @@ class _BadgeCollection extends ConsumerWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
+            crossAxisSpacing: 8,
+            // 타일 아래 이름이 한 줄 붙어 세로가 길어진다.
+            childAspectRatio: 0.72,
             children: [for (final b in badges) _BadgeTile(b)],
           ),
         ],
@@ -185,17 +247,34 @@ class _BadgeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: badge.earned ? 1 : 0.4,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.muted,
-          border: Border.all(color: AppColors.border),
-        ),
-        child: badge.earned
-            ? Text(badge.emoji, style: const TextStyle(fontSize: 20))
-            : const Icon(Icons.lock,
-                size: 16, color: AppColors.mutedForeground),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                // Figma 는 원이 아니라 사각 라운드다.
+                borderRadius: BorderRadius.circular(8),
+                color: AppColors.muted,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: badge.earned
+                  ? Text(badge.emoji, style: const TextStyle(fontSize: 18))
+                  : const Icon(Icons.lock,
+                      size: 14, color: AppColors.mutedForeground),
+            ),
+          ),
+          const SizedBox(height: 3),
+          // 어떤 배지인지 이름이 있어야 알 수 있다. 도시 이름이 길면 줄인다.
+          Text(badge.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.sans(
+                  fontSize: 7, color: AppColors.mutedForeground)),
+        ],
       ),
     );
   }
