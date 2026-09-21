@@ -63,11 +63,15 @@ abstract final class AppColors {
 
   // ── 스트릭 인디케이터 (7-4) ────────────────────────────────
   /// 연속 러닝일 수(1~7)에 대응하는 채움 색.
-  /// 1~3일 초록 · 4~6일 주황 · 7일 빨강. 미달성/미래는 null.
+  /// 1~3일 초록 · 4~6일 주황 · 7일 핫핑크. 미달성/미래는 null.
+  ///
+  /// 7일은 Figma 정본의 `#FF2D55` 다(2026-09-20 결정 ①). 문서에 있던
+  /// `#EF4444` 는 미세먼지 '매우나쁨'과 같은 값이라, 한 주를 다 채운 보상이
+  /// 경고색으로 보였다.
   static Color? streakFill(int? consecutiveDays) {
     if (consecutiveDays == null || consecutiveDays < 1) return null;
     if (consecutiveDays <= 3) return const Color(0xFF00E87A);
     if (consecutiveDays <= 6) return const Color(0xFFFF5F1F);
-    return const Color(0xFFEF4444);
+    return const Color(0xFFFF2D55);
   }
 }

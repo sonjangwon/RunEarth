@@ -162,6 +162,20 @@ class StreakInfo {
   /// "N주 연속" 뱃지 값 — 주당 1회 이상 달린 연속 주 수(A안).
   final int weekStreakCount;
 
+  /// 이번 주 안에서 가장 길었던 연속 일수. 카드의 불꽃 크기와 글로우 색이
+  /// 이 값을 따른다(Figma).
+  ///
+  /// 새 필드가 아니라 [week] 에서 파생한다 — [StreakDay.consec] 이 이미
+  /// 날짜별 연속 일수를 들고 있어서, 따로 들고 있으면 둘이 어긋날 수 있다.
+  int get maxConsec {
+    var m = 0;
+    for (final d in week) {
+      final c = d.consec ?? 0;
+      if (c > m) m = c;
+    }
+    return m;
+  }
+
   static const empty = StreakInfo(week: [], weekStreakCount: 0);
 }
 

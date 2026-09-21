@@ -198,17 +198,7 @@ class _JourneyCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // 진행률 바
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: journey.segmentPct,
-                    minHeight: 6,
-                    backgroundColor: AppColors.muted,
-                    valueColor:
-                        const AlwaysStoppedAnimation(AppColors.primary),
-                  ),
-                ),
+                _JourneyBar(pct: journey.segmentPct),
                 const SizedBox(height: 10),
                 // 마일스톤 도시
                 Row(
@@ -224,6 +214,72 @@ class _JourneyCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 여정 진행바 — 채움은 그라데이션, 끝에는 현재 위치를 가리키는 흰 점(Figma).
+///
+/// `LinearProgressIndicator` 로는 마커를 바깥으로 못 내보낸다. 마커(12)가
+/// 바(6)보다 커서 위아래로 삐져나오기 때문에 직접 그린다.
+class _JourneyBar extends StatelessWidget {
+  const _JourneyBar({required this.pct});
+
+  /// 0~1 구간 진행률.
+  final double pct;
+
+  static const _barHeight = 6.0;
+  static const _markerSize = 12.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final full = constraints.maxWidth;
+        final filled = full * pct.clamp(0.0, 1.0);
+        return SizedBox(
+          height: _markerSize,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Container(
+                height: _barHeight,
+                decoration: BoxDecoration(
+                  color: AppColors.muted,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              Container(
+                width: filled,
+                height: _barHeight,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00A854), AppColors.primary],
+                  ),
+                ),
+              ),
+              Positioned(
+                // 점의 중심을 채움 끝에 맞추되 양 끝에서 잘리지 않게 가둔다.
+                left: (filled - _markerSize / 2)
+                    .clamp(0.0, full - _markerSize),
+                child: Container(
+                  width: _markerSize,
+                  height: _markerSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.primary, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.primary, blurRadius: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -370,51 +426,87 @@ class _StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 이번 주 최고 연속 색이 카드 전체의 기준색이다 — 불꽃·빛·오늘 표시가
+    // 다 이 색을 따라간다(Figma). 아직 한 번도 안 달렸으면 네온그린.
+    final peak = AppColors.streakFill(streak.maxConsec) ?? AppColors.primary;
+    final flameSize = 15 + streak.maxConsec * 1.4;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Text('🔥', style: TextStyle(fontSize: 15)),
-                  const SizedBox(width: 6),
-                  Text('달리기 스트릭',
-                      style: AppTextStyles.sans(
-                          fontSize: 11, fontWeight: FontWeight.w600)),
-                ],
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          // 카드 아래쪽에서 올라오는 옅은 빛.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppColors.badgeBackground(AppColors.primary),
-                  borderRadius: BorderRadius.circular(999),
-                  border:
-                      Border.all(color: AppColors.primary.withAlpha(0x35)),
+                  gradient: RadialGradient(
+                    center: const Alignment(0, 1.2),
+                    radius: 0.9,
+                    colors: [peak.withAlpha(0x12), Colors.transparent],
+                    stops: const [0, 0.65],
+                  ),
                 ),
-                child: Text('${streak.weekStreakCount}주 연속',
-                    style: AppTextStyles.mono(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary)),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (final d in streak.week) _StreakDot(d),
-            ],
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        // 연속이 길수록 크고 밝게 탄다.
+                        Text('🔥',
+                            style: TextStyle(
+                              fontSize: flameSize,
+                              shadows: [
+                                Shadow(
+                                    color: peak,
+                                    blurRadius: streak.maxConsec * 2.0),
+                              ],
+                            )),
+                        const SizedBox(width: 6),
+                        Text('달리기 스트릭',
+                            style: AppTextStyles.sans(
+                                fontSize: 11, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.badgeBackground(AppColors.primary),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                            color: AppColors.primary.withAlpha(0x35)),
+                      ),
+                      child: Text('${streak.weekStreakCount}주 연속',
+                          style: AppTextStyles.mono(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (final d in streak.week) _StreakDot(d, peak: peak),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -423,46 +515,81 @@ class _StreakCard extends StatelessWidget {
 }
 
 class _StreakDot extends StatelessWidget {
-  const _StreakDot(this.day);
+  const _StreakDot(this.day, {required this.peak});
+
   final StreakDay day;
+
+  /// 이번 주 최고 연속 색 — 오늘 표시(점·날짜 글자)에만 쓴다.
+  final Color peak;
 
   @override
   Widget build(BuildContext context) {
     final fill = AppColors.streakFill(day.consec);
     final isEmpty = fill == null;
+    final lit = fill != null && !day.future;
+
     return Column(
       children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: day.future
-                ? Colors.white.withAlpha(0x08)
-                : (fill ?? Colors.white.withAlpha(0x0D)),
-            border: Border.all(
-              color: day.future
-                  ? Colors.white.withAlpha(0x10)
-                  : (fill ?? Colors.white.withAlpha(0x1A)),
-              width: 1.5,
-            ),
-          ),
-          child: (day.ran && !day.future)
-              ? const Icon(Icons.check, size: 12, color: Colors.black)
-              : Center(
-                  child: Text(day.name,
-                      style: AppTextStyles.sans(
-                          fontSize: 8,
-                          color: Colors.white.withAlpha(isEmpty ? 0x4D : 0xFF))),
+        Stack(
+          // 오늘 점이 원 밖 아래에 붙는다.
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: day.future
+                    ? Colors.white.withAlpha(0x08)
+                    : (fill ?? Colors.white.withAlpha(0x0D)),
+                border: Border.all(
+                  color: day.future
+                      ? Colors.white.withAlpha(0x10)
+                      : (fill ?? Colors.white.withAlpha(0x1A)),
+                  width: 1.5,
                 ),
+                // 연속이 쌓일수록 번짐이 넓어진다. Figma 는 안쪽 그림자도
+                // 함께 쓰지만 Flutter BoxShadow 에는 inset 이 없어 뺐다.
+                boxShadow: lit
+                    ? [
+                        BoxShadow(
+                          color: fill.withAlpha(0x70),
+                          blurRadius: (day.consec ?? 0) * 6.0,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: (day.ran && !day.future)
+                  ? const Icon(Icons.check, size: 12, color: Colors.black)
+                  : Center(
+                      child: Text(day.name,
+                          style: AppTextStyles.sans(
+                              fontSize: 8,
+                              color: Colors.white
+                                  .withAlpha(isEmpty ? 0x4D : 0xFF))),
+                    ),
+            ),
+            // 오늘인데 아직 안 달렸으면 원 아래 점으로 "네 차례"를 알린다.
+            if (day.today && !day.ran)
+              Positioned(
+                bottom: -2,
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: peak,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 3),
         Text(day.date,
             style: TextStyle(
                 fontSize: 7,
-                color: day.today
-                    ? AppColors.primary
-                    : Colors.white.withAlpha(0x33))),
+                color: day.today ? peak : Colors.white.withAlpha(0x33))),
       ],
     );
   }
