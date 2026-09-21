@@ -276,25 +276,33 @@ class _Running extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                // 두 상태 모두 **한 줄**이다 — 일시정지할 때 패널 높이가
+                // 변하면 지도가 출렁이고, 누르려던 자리도 달라진다.
+                // Figma 는 일시정지 중 '재개' 하나만 두지만, 멈춰서 숨 고르다
+                // 끝내는 흐름이 흔해 종료 경로를 남긴다. 재개를 거쳐야만
+                // 끝낼 수 있으면 막다른 길이 된다(2026-09-21 사용자 결정).
+                // 대신 폭을 7:3 으로 나눠 재개가 여전히 주인공이게 둔다.
                 child: state.isPaused
-                    ? Column(
+                    ? Row(
                         children: [
-                          _ControlButton(
-                            label: '달리기 재개',
-                            icon: Icons.play_arrow,
-                            style: _ControlStyle.gradient,
-                            onTap: onTogglePause,
+                          Expanded(
+                            flex: 7,
+                            child: _ControlButton(
+                              label: '달리기 재개',
+                              icon: Icons.play_arrow,
+                              style: _ControlStyle.gradient,
+                              onTap: onTogglePause,
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          // Figma 는 일시정지 중 '재개' 하나만 두지만, 멈춰서
-                          // 숨 고르다 끝내는 흐름이 흔해 종료 경로를 남긴다.
-                          // 재개를 거쳐야만 끝낼 수 있으면 막다른 길이 된다
-                          // (2026-09-21 사용자 결정).
-                          _ControlButton(
-                            label: '종료',
-                            icon: Icons.stop,
-                            style: _ControlStyle.danger,
-                            onTap: onStop,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 3,
+                            child: _ControlButton(
+                              label: '종료',
+                              icon: Icons.stop,
+                              style: _ControlStyle.danger,
+                              onTap: onStop,
+                            ),
                           ),
                         ],
                       )
@@ -1035,7 +1043,6 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool gradient = style == _ControlStyle.gradient;
     final Color fg = switch (style) {
       _ControlStyle.gradient => Colors.black,
       _ControlStyle.danger => _dangerText,
@@ -1075,8 +1082,9 @@ class _ControlButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(
-                vertical: dense ? 12 : (gradient ? 16 : 14)),
+            // 꼴이 달라도 높이는 같아야 한다 — 같은 줄에 나란히 서고,
+            // 달리는 중 ↔ 일시정지 중에 패널 높이가 변하면 안 된다.
+            padding: EdgeInsets.symmetric(vertical: dense ? 12 : 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1088,7 +1096,7 @@ class _ControlButton extends StatelessWidget {
                 // 한글 글리프가 없어 폴백되면 자간만 어색해진다.
                 Text(label,
                     style: AppTextStyles.sans(
-                        fontSize: (gradient && !dense) ? 16 : 14,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: fg)),
               ],
