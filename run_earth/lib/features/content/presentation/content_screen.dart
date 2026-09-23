@@ -171,7 +171,7 @@ class _ThemeCard extends StatelessWidget {
             // 사진 위에는 이모지와 이름만 얹는다. 설명·거리는 아래 줄로
             // 내려가서, 사진이 글자에 가려지지 않는다(Figma).
             SizedBox(
-              height: 80,
+              height: 96,
               child: Stack(
                 children: [
                   Positioned.fill(
@@ -182,7 +182,7 @@ class _ThemeCard extends StatelessWidget {
                       child: Opacity(
                         opacity: 0.6,
                         child: Image.network(
-                          unsplashUrl(run.img, w: 500, h: 160),
+                          unsplashUrl(run.img, w: 500, h: 192),
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
@@ -455,7 +455,7 @@ class _MarathonCard extends StatelessWidget {
     final card = Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
