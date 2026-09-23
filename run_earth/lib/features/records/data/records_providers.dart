@@ -15,7 +15,7 @@ final runsStreamProvider = StreamProvider<List<Run>>((ref) {
 /// 기록 탭 타입 필터 (null = 전체). 정본: records.md / 기능정의서 4-3-B.
 final recordsFilterProvider = StateProvider<RecordType?>((ref) => null);
 
-/// 미완료 러닝(0km·1분 미만)을 목록에 함께 보일지. 기본은 숨김.
+/// 미완료 러닝(거리 0)을 목록에 함께 보일지. 기본은 숨김.
 ///
 /// 0km 기록 정책(2026-09-20) — 기록을 **지우는 게 아니라 접어두는** 것이므로
 /// 사용자가 언제든 펼쳐 볼 수 있어야 한다. `records.md` 4 의 영구 보존 원칙이

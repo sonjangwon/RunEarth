@@ -32,7 +32,7 @@ class HomeStats {
 
 /// 로컬 DB 전체 기록에서 통계 집계.
 ///
-/// 미완료 러닝(`isIncomplete`)은 세지 않는다 — 0km 기록 정책(2026-09-20).
+/// 미완료 러닝(`isIncomplete`)은 세지 않는다 — 0km 기록 정책(2026-09-23).
 /// 기록 자체는 DB 에 그대로 남아 있고, 집계에서만 빠진다.
 final homeStatsProvider = Provider<HomeStats>((ref) {
   final all = ref.watch(runsStreamProvider).valueOrNull;

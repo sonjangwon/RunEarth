@@ -36,7 +36,7 @@ class RecordsScreen extends ConsumerWidget {
             final typed = filter == null
                 ? allRuns
                 : allRuns.where((r) => r.type == filter).toList();
-            // 0km 기록 정책(2026-09-20): 미완료 러닝은 기본으로 접어둔다.
+            // 0km 기록 정책(2026-09-23): 미완료 러닝은 기본으로 접어둔다.
             // 요약 통계는 토글과 무관하게 **항상 완료 기록만** 센다 —
             // 펼쳐 봤다고 총 횟수가 늘면 어느 쪽이 진짜인지 알 수 없다.
             final complete = typed.where((r) => !r.isIncomplete).toList();
