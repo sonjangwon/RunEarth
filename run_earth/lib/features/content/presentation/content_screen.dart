@@ -47,22 +47,29 @@ class _ContentScreenState extends State<ContentScreen> {
                 ),
               ],
             ),
-            // ThemeRunDetail 슬라이드 인 오버레이
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              transitionBuilder: (child, anim) => SlideTransition(
-                position: Tween(
-                        begin: const Offset(1, 0), end: Offset.zero)
-                    .animate(anim),
-                child: child,
+            // ThemeRunDetail 슬라이드 인 오버레이.
+            //
+            // `Positioned.fill` 은 **여기**에 있어야 한다. 상세 위젯이 직접
+            // 돌려주면 AnimatedSwitcher·SlideTransition 을 거치면서 Stack 의
+            // 직계 자식이 아니게 되고, `Positioned.applyParentData` 예외가
+            // 나면서 화면이 통째로 에러 위젯이 된다(2026-09-23 실기기 확인).
+            Positioned.fill(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                transitionBuilder: (child, anim) => SlideTransition(
+                  position: Tween(
+                          begin: const Offset(1, 0), end: Offset.zero)
+                      .animate(anim),
+                  child: child,
+                ),
+                child: _detail == null
+                    ? const SizedBox.shrink()
+                    : _ThemeRunDetail(
+                        key: ValueKey(_detail!.id),
+                        run: _detail!,
+                        onBack: () => setState(() => _detail = null),
+                      ),
               ),
-              child: _detail == null
-                  ? const SizedBox.shrink()
-                  : _ThemeRunDetail(
-                      key: ValueKey(_detail!.id),
-                      run: _detail!,
-                      onBack: () => setState(() => _detail = null),
-                    ),
             ),
           ],
         ),
@@ -262,8 +269,8 @@ class _ThemeRunDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: ColoredBox(
+    // 화면을 덮는 일(`Positioned.fill`)은 부모가 한다 — 위 주석 참조.
+    return ColoredBox(
         color: AppColors.background,
         child: ListView(
           padding: EdgeInsets.zero,
@@ -413,7 +420,6 @@ class _ThemeRunDetail extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 
