@@ -78,7 +78,55 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       );
     }
 
+    // 절전 제외 — 화면을 끄면 안드로이드가 위치 갱신을 늦춰 GPS 가 튄다
+    // (2026-09-23 야외 검증). 알림 권한과 같은 원칙으로 **거부해도 막지 않는다**.
+    if (!await tracker.isBatteryOptimizationIgnored()) {
+      if (!mounted) return;
+      final proceed = await _showBatteryRationale();
+      if (!mounted) return;
+      if (proceed) await tracker.requestIgnoreBatteryOptimization();
+      if (!mounted) return;
+    }
+
     await tracker.start();
+  }
+
+  /// 절전 제외가 왜 필요한지 설명하는 사전 안내. [true] 면 시스템 팝업으로 간다.
+  ///
+  /// 맥락 없이 시스템 팝업부터 띄우면 반사적으로 거부한다. 알림 권한과 같은
+  /// 순서를 쓴다(`_showNotificationRationale`).
+  Future<bool> _showBatteryRationale() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('절전 제외를 허용해주세요',
+            style: AppTextStyles.sans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground)),
+        content: Text(
+          '화면을 끄면 폰이 위치 확인을 늦춰서,\n'
+          '실제보다 거리가 길게 기록될 수 있어요.\n'
+          '제외해두면 경로가 정확해집니다.',
+          style: AppTextStyles.sans(
+              fontSize: 13, color: AppColors.mutedForeground),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('나중에',
+                style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('계속',
+                style: AppTextStyles.sans(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   /// 알림 권한이 왜 필요한지 설명하는 사전 안내. [true] 면 시스템 팝업으로 간다.

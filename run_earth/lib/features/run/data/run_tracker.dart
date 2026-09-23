@@ -138,6 +138,26 @@ class RunTracker extends Notifier<RunSessionState> {
   /// (2026-09-19).
   static const _minSegmentMeters = 5.0;
 
+  /// 사람이 낼 수 있는 최대 속도(m/s). 이보다 빠른 좌표는 **GPS 튐**으로 보고
+  /// 버린다(2026-09-23 야외 검증으로 확정).
+  ///
+  /// 6.0 m/s 는 `2'47"/km` 로, 마라톤 세계기록 페이스(약 5.7 m/s)보다도 빠르다.
+  /// 그날 기록으로 5.0~7.0 을 다 돌려보니 총거리가 4.16~4.46km 로 거의 안
+  /// 변해(8.0 부터 다시 노이즈가 새어 든다) 경계에 민감하지 않다.
+  ///
+  /// **왜 필요했나**: 화면이 꺼지면 안드로이드가 앱을 절전 대상으로 보고 위치
+  /// 갱신을 늦춘다. 3초를 요청해도 실제로는 8~11초에 한 번씩 왔고, 그만큼
+  /// GPS 흔들림이 한 번에 뭉쳐 들어와 "7초에 126m(시속 65km)" 같은 구간이
+  /// 생겼다. 5.14km 로 찍힌 기록에서 그런 구간의 거리 합이 1,785m(35%)였다.
+  static const _maxSpeedMps = 6.0;
+
+  /// 이 시간을 넘겨 좌표가 끊겼으면 속도 검사를 건너뛴다.
+  ///
+  /// 신호가 오래 끊겼다 돌아오면 좌표가 실제로 멀리 떨어져 있는 게 정상인데,
+  /// 속도로 재면 무조건 튐으로 보여 **영영 앵커가 안 움직인다.** 그때는
+  /// RESUME 과 똑같이 앵커로만 쓰고 거리에 더하지 않는다.
+  static const _staleFixAfter = Duration(seconds: 30);
+
   @override
   RunSessionState build() {
     ref.onDispose(_disposeAll);
@@ -311,9 +331,18 @@ class RunTracker extends Notifier<RunSessionState> {
     // 경로에도 넣지 않는다 - 제자리 점이 쌓이면 폴리라인만 지저분해진다.
     if (meters < _minSegmentMeters) return;
 
+    // GPS 튐 거르기 — 사람이 못 내는 속도면 좌표를 통째로 버린다.
+    // 앵커(`last`)는 그대로 둬서 다음 좌표가 제자리를 찾으면 이어진다.
+    final elapsedMs = point.e! - last.e!;
+    final stale = elapsedMs > _staleFixAfter.inMilliseconds;
+    if (!stale && elapsedMs > 0 && meters / (elapsedMs / 1000) > _maxSpeedMps) {
+      return;
+    }
+
     // 복원·RESUME 직후 첫 구간은 앵커로만 쓰고 거리에 더하지 않는다
     // (추적하지 못한 이동이라 더하면 페이스가 왜곡된다. run-flow.md 7).
-    final add = _skipNextSegment ? 0.0 : meters / 1000;
+    // 오래 끊겼다 돌아온 좌표도 같다 — 그 사이 이동은 추적하지 못했다.
+    final add = (_skipNextSegment || stale) ? 0.0 : meters / 1000;
     _skipNextSegment = false;
 
     state = state.copyWith(
@@ -511,6 +540,30 @@ class RunTracker extends Notifier<RunSessionState> {
   Future<NotificationPermission> requestNotificationPermission() async {
     if (!Platform.isAndroid) return NotificationPermission.granted;
     return _mapNotificationStatus(await Permission.notification.request());
+  }
+
+  /// 배터리 최적화에서 이 앱이 빠져 있는지(= 절전 제한을 안 받는지).
+  ///
+  /// Android 외에는 개념이 없어 항상 true.
+  Future<bool> isBatteryOptimizationIgnored() async {
+    if (!Platform.isAndroid) return true;
+    return Permission.ignoreBatteryOptimizations.status
+        .then((s) => s.isGranted);
+  }
+
+  /// 배터리 최적화 제외를 요청한다(시스템 다이얼로그). 허용됐으면 true.
+  ///
+  /// **왜 필요한가**: 화면이 꺼지면 안드로이드가 앱을 절전 대상으로 보고 위치
+  /// 갱신을 늦춘다. 2026-09-23 야외 검증에서 3초를 요청했는데 실제로는 8~11초
+  /// 간격으로 왔고, 그 틈에 GPS 흔들림이 뭉쳐 들어와 거리가 부풀었다
+  /// (5.14km 기록에서 튄 구간 합이 1,785m). 제외되면 간격이 요청값에 가까워진다.
+  ///
+  /// **거부해도 러닝을 막지 않는다** — 알림 권한과 같은 원칙이다(`run-flow.md` 6).
+  /// 거부되면 [_maxSpeedMps] 필터가 뒤를 받친다.
+  Future<bool> requestIgnoreBatteryOptimization() async {
+    if (!Platform.isAndroid) return true;
+    final status = await Permission.ignoreBatteryOptimizations.request();
+    return status.isGranted;
   }
 
   NotificationPermission _mapNotificationStatus(PermissionStatus status) {
