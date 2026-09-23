@@ -8,12 +8,12 @@ import '../../../core/db/app_database.dart';
 import '../../../core/models/air_quality.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
+import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/sync/run_sync_service.dart';
 import '../data/air_quality_provider.dart';
 import '../data/run_tracker.dart';
-import '../../../core/models/run.dart';
 import 'cover_photo_sheet.dart';
 import 'route_image_renderer.dart';
 import 'run_detail_view.dart';
@@ -38,6 +38,16 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   /// 그래서 저장이 끝나야 이 값이 차고, 그전까지는 카메라 버튼을 안 그린다 —
   /// 눌러도 아무 일 없는 버튼을 잠깐 보여주지 않으려는 것이다.
   Run? _savedRun;
+
+  @override
+  void initState() {
+    super.initState();
+    // 출발 전 지도를 캐시 위치로 채운다. 권한은 새로 묻지 않는다 —
+    // 자세한 이유는 [RunTracker.primeMapPosition].
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(runTrackerProvider.notifier).primeMapPosition();
+    });
+  }
 
   /// START 탭 → 알림 권한을 챙긴 뒤 러닝을 시작한다(run-flow.md 6 '알림 권한').
   ///
@@ -132,7 +142,10 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   /// 결과 화면을 닫고 prerun 으로. 다음 러닝에 지난 기록이 남지 않게 비운다.
   void _closeResult() {
     setState(() => _savedRun = null);
-    ref.read(runTrackerProvider.notifier).reset();
+    final tracker = ref.read(runTrackerProvider.notifier);
+    tracker.reset();
+    // reset 이 current 까지 비우므로 출발 전 지도를 다시 채워준다.
+    tracker.primeMapPosition();
   }
 
   @override
@@ -150,8 +163,13 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     });
 
     final Widget body = switch (state.phase) {
-      RunSessionPhase.prerun =>
-        _Prerun(runType: state.runType, onStart: _onStart),
+      // 출발 전에도 지도가 화면 위쪽을 차지한다 — Figma 는 지도를 항상 두고
+      // 아래 패널만 출발 전 ↔ 달리는 중으로 바꾼다(App.tsx 853·869줄).
+      RunSessionPhase.prerun => _MapWithPanel(
+          state: state,
+          recording: false,
+          panel: _PrerunPanel(runType: state.runType, onStart: _onStart),
+        ),
       RunSessionPhase.countdown =>
         const ColoredBox(color: AppColors.background),
       RunSessionPhase.running ||
@@ -200,47 +218,26 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   }
 }
 
-// ── prerun ────────────────────────────────────────────────────
-class _Prerun extends StatelessWidget {
-  const _Prerun({required this.runType, required this.onStart});
-  final RunType runType;
-  final VoidCallback onStart;
+// ── 지도 + 하단 패널 (출발 전·달리는 중 공용) ─────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RunTypeCard(runType),
-          const SizedBox(height: 12),
-          const Row(
-            children: [
-              Expanded(child: _WeatherCard()),
-              SizedBox(width: 8),
-              Expanded(child: _DustCard()),
-            ],
-          ),
-          const Spacer(),
-          _StartButton(onTap: onStart),
-        ],
-      ),
-    );
-  }
-}
-
-// ── running / paused ──────────────────────────────────────────
-class _Running extends StatelessWidget {
-  const _Running({
+/// 화면을 **지도(위) + 패널(아래)** 로 나눈다.
+///
+/// Figma 는 달리기 탭에서 지도를 항상 띄워두고 아래 패널만 바꾼다
+/// (`App.tsx` 853줄 MAP · 869줄 BOTTOM PANEL). 전에는 출발 전에 지도가 아예
+/// 없어서, 어디서 달릴지 보지도 못한 채 START 를 눌러야 했다.
+class _MapWithPanel extends StatelessWidget {
+  const _MapWithPanel({
     required this.state,
-    required this.onTogglePause,
-    required this.onStop,
+    required this.recording,
+    required this.panel,
   });
 
   final RunSessionState state;
-  final VoidCallback onTogglePause;
-  final VoidCallback onStop;
+
+  /// 달리는 중인지. 지도 GPS 뱃지 문구가 갈린다.
+  final bool recording;
+
+  final Widget panel;
 
   @override
   Widget build(BuildContext context) {
@@ -253,7 +250,7 @@ class _Running extends StatelessWidget {
                 child: _RunMap(
                   route: state.route,
                   current: state.current,
-                  recording: true,
+                  recording: recording,
                 ),
               ),
               // 지도 아래쪽을 카드색으로 녹여 하단 패널과 이어 붙인다(Figma).
@@ -290,8 +287,69 @@ class _Running extends StatelessWidget {
             ],
           ),
         ),
-        // ── 하단 패널 ────────────────────────────────────────
-        DecoratedBox(
+        panel,
+      ],
+    );
+  }
+}
+
+// ── prerun ────────────────────────────────────────────────────
+
+/// 출발 전 하단 패널 — 러닝 타입 · 날씨 · 미세먼지 · 시작 버튼.
+class _PrerunPanel extends StatelessWidget {
+  const _PrerunPanel({required this.runType, required this.onStart});
+  final RunType runType;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _RunTypeCard(runType),
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                Expanded(child: _WeatherCard()),
+                SizedBox(width: 8),
+                Expanded(child: _DustCard()),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _StartButton(onTap: onStart),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── running / paused ──────────────────────────────────────────
+class _Running extends StatelessWidget {
+  const _Running({
+    required this.state,
+    required this.onTogglePause,
+    required this.onStop,
+  });
+
+  final RunSessionState state;
+  final VoidCallback onTogglePause;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MapWithPanel(
+      state: state,
+      recording: true,
+      panel: DecoratedBox(
           decoration: const BoxDecoration(
             color: AppColors.card,
             border: Border(top: BorderSide(color: AppColors.border)),
@@ -360,7 +418,6 @@ class _Running extends StatelessWidget {
             ],
           ),
         ),
-      ],
     );
   }
 }
@@ -460,7 +517,11 @@ class _RunMapState extends State<_RunMap> {
         // 좌표를 하나라도 잡았으면 내린다. 예전 조건은 route.length < 2 였는데,
         // 출발선에 서 있으면 두 번째 점이 안 찍혀 신호가 멀쩡한데도 계속
         // '기다리는 중'으로 보였다(2026-09-19).
-        if (widget.current == null)
+        //
+        // **달리는 중에만** 띄운다. 출발 전에는 위치 스트림을 돌리지 않아서
+        // 기다려도 채워지지 않는다 — 그때는 좌상단 'GPS 연결 중…' 뱃지가
+        // 같은 사실을 더 조용히 말한다(2026-09-23 실기기에서 드러났다).
+        if (widget.recording && widget.current == null)
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -473,8 +534,9 @@ class _RunMapState extends State<_RunMap> {
                       fontSize: 12, color: AppColors.mutedForeground)),
             ),
           ),
-        if (widget.recording)
-          Positioned(
+        // 뱃지는 출발 전에도 띄운다(Figma). 문구만 상태에 따라 갈린다 —
+        // 아직 위치를 못 잡았으면 '연결됨' 이라고 말하지 않는다.
+        Positioned(
             top: 12,
             left: 16,
             child: Container(
@@ -490,13 +552,24 @@ class _RunMapState extends State<_RunMap> {
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
-                        shape: BoxShape.circle, color: AppColors.primary),
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: widget.current == null
+                            ? AppColors.mutedForeground
+                            : AppColors.primary),
                   ),
                   const SizedBox(width: 6),
-                  Text('GPS 기록 중',
+                  Text(
+                      widget.recording
+                          ? 'GPS 기록 중'
+                          : widget.current == null
+                              ? 'GPS 연결 중…'
+                              : 'GPS 연결됨',
                       style: AppTextStyles.mono(
-                          fontSize: 9, color: AppColors.primary)),
+                          fontSize: 9,
+                          color: widget.current == null
+                              ? AppColors.mutedForeground
+                              : AppColors.primary)),
                 ],
               ),
             ),
@@ -1021,7 +1094,8 @@ class _StartButton extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Center(
-                child: Text('START',
+                // Figma 정본은 한글 '달리기 시작' 이다(App.tsx 940줄).
+                child: Text('달리기 시작',
                     style: AppTextStyles.display(
                         fontSize: 20, color: Colors.black, letterSpacing: 1)),
               ),

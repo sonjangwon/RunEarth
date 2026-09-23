@@ -185,6 +185,17 @@ class RunTracker extends Notifier<RunSessionState> {
     _startSnapshotTimer(); // 위치 스트림은 [start] 에서 이미 켰다.
   }
 
+  /// 출발 전 지도를 채운다. 달리기 탭을 열 때 화면이 부른다.
+  ///
+  /// 이미 위치를 알거나 달리는 중이면 아무것도 안 한다. **권한을 새로
+  /// 요청하지 않는다** — 권한을 묻는 시점은 START 이고(`run-flow.md` 6),
+  /// 탭을 구경만 해도 팝업이 뜨는 건 그 정책과 어긋난다. 권한이 없으면
+  /// 조용히 실패하고 지도는 폴백(서울시청)에 머문다.
+  Future<void> primeMapPosition() async {
+    if (state.phase != RunSessionPhase.prerun) return;
+    await _seedCurrentPosition();
+  }
+
   /// 캐시된 마지막 위치로 지도를 즉시 채운다.
   ///
   /// 첫 GPS fix 는 수 초~수십 초 걸리고, 그동안 지도는 폴백 좌표(서울시청)에
