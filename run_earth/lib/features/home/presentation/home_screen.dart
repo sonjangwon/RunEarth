@@ -14,6 +14,27 @@ import '../data/home_providers.dart';
 // 이미지를 규정하나 도시별 에셋이 [미확정] → 우선 단일 임시 이미지.
 const _journeyHeroImg = 'photo-1534430480872-3498386e7856';
 
+// 여정 히어로 높이 — 화면이 남으면 히어로가 먹는다.
+//
+// Figma 정본의 폰 프레임은 320×640 이라 104 로도 홈이 거의 꽉 찬다. 그런데
+// 요즘 기기(Pixel 9 는 411×923dp)에서는 같은 스택이 화면의 1/4 을 못 채워
+// CTA 아래가 휑하게 빈다. Figma 에는 이 상황 자체가 없어 답이 없고,
+// 남는 공간은 여정 카드가 먹기로 했다(figma-alignment 결정 ⑧) — 여정이
+// 이 앱의 주인공이고, 104 에서는 도시 사진도 너무 낮게 잘린다.
+const double _heroMin = 104; // Figma 정본 값
+const double _heroMax = 220;
+
+/// 히어로가 [_heroMin] 일 때 홈 전체가 차지하는 높이(Pixel 9·기본 글자 크기 실측).
+///
+/// 글자 크기 설정이나 언어가 다르면 어긋날 수 있다. 그래서 결과를
+/// [_heroMin]~[_heroMax] 로 가둔다 — 추정이 틀려도 그 밖으로는 안 나간다.
+const double _contentHeightAtHeroMin = 545;
+
+/// 남는 세로 공간을 히어로 높이로 바꾼다.
+double _heroHeightFor(double viewportHeight) =>
+    (_heroMin + (viewportHeight - _contentHeightAtHeroMin))
+        .clamp(_heroMin, _heroMax);
+
 String _greeting() {
   final h = DateTime.now().hour;
   if (h >= 5 && h <= 10) return '좋은 아침이에요,';
@@ -36,21 +57,24 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Greeting(),
-              const SizedBox(height: 16),
-              _JourneyCard(journey),
-              const SizedBox(height: 12),
-              _StatsRow(stats),
-              const SizedBox(height: 12),
-              _StreakCard(streak),
-              const SizedBox(height: 16),
-              const _StartCta(),
-            ],
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Greeting(),
+                const SizedBox(height: 16),
+                _JourneyCard(journey,
+                    heroHeight: _heroHeightFor(constraints.maxHeight)),
+                const SizedBox(height: 12),
+                _StatsRow(stats),
+                const SizedBox(height: 12),
+                _StreakCard(streak),
+                const SizedBox(height: 16),
+                const _StartCta(),
+              ],
+            ),
           ),
         ),
       ),
@@ -85,8 +109,11 @@ class _Greeting extends ConsumerWidget {
 }
 
 class _JourneyCard extends StatelessWidget {
-  const _JourneyCard(this.journey);
+  const _JourneyCard(this.journey, {required this.heroHeight});
   final JourneyProgress journey;
+
+  /// 화면 크기에 따라 달라진다 — [_heroHeightFor] 참조.
+  final double heroHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +139,7 @@ class _JourneyCard extends StatelessWidget {
         children: [
           // 히어로 (배경 이미지는 journey.md [미확정] → 그라디언트 플레이스홀더)
           Container(
-            height: 104,
+            height: heroHeight,
             width: double.infinity,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -125,7 +152,7 @@ class _JourneyCard extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: Image.network(
-                    unsplashUrl(_journeyHeroImg, w: 600, h: 240),
+                    unsplashUrl(_journeyHeroImg, w: 800, h: 460),
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
