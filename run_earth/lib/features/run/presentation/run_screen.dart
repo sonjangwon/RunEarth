@@ -13,6 +13,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/sync/run_sync_service.dart';
 import '../data/air_quality_provider.dart';
 import '../data/run_tracker.dart';
+import '../../../core/models/run.dart';
+import 'cover_photo_sheet.dart';
 import 'route_image_renderer.dart';
 import 'run_detail_view.dart';
 
@@ -28,6 +30,14 @@ class RunScreen extends ConsumerStatefulWidget {
 
 class _RunScreenState extends ConsumerState<RunScreen> {
   bool _showStopConfirm = false;
+
+  /// 방금 끝내 **DB 에 저장까지 끝난** 기록.
+  ///
+  /// 결과 화면은 트래커 상태로 그려지고 DB 를 구독하지 않는다. 사진을 붙이려면
+  /// 저장된 행이 있어야 하는데, 저장은 경로 PNG 렌더 뒤에 비동기로 일어난다.
+  /// 그래서 저장이 끝나야 이 값이 차고, 그전까지는 카메라 버튼을 안 그린다 —
+  /// 눌러도 아무 일 없는 버튼을 잠깐 보여주지 않으려는 것이다.
+  Run? _savedRun;
 
   /// START 탭 → 알림 권한을 챙긴 뒤 러닝을 시작한다(run-flow.md 6 '알림 권한').
   ///
@@ -105,10 +115,24 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     final coverUrl = await renderRouteCover(route);
     final run = tracker.buildRun(coverImageUrl: coverUrl);
     await ref.read(appDatabaseProvider).upsertRun(run);
+    // 저장이 끝나야 결과 화면에서 사진을 붙일 수 있다.
+    if (mounted) setState(() => _savedRun = run);
     // 정식 기록이 된 뒤에야 진행 중 스냅샷을 지운다(순서 중요).
     await tracker.clearSnapshot();
     // 저장 즉시 업로드 시도. 오프라인이면 대기 상태로 남아 이후 자동 재시도된다.
     unawaited(ref.read(runSyncServiceProvider).syncNow());
+  }
+
+  /// 결과 화면 대표 이미지 변경. 이 화면은 DB 를 구독하지 않아 직접 갱신한다.
+  Future<void> _changeResultCover() async {
+    final next = await changeCoverImage(context, ref, _savedRun!);
+    if (next != null && mounted) setState(() => _savedRun = next);
+  }
+
+  /// 결과 화면을 닫고 prerun 으로. 다음 러닝에 지난 기록이 남지 않게 비운다.
+  void _closeResult() {
+    setState(() => _savedRun = null);
+    ref.read(runTrackerProvider.notifier).reset();
   }
 
   @override
@@ -147,8 +171,13 @@ class _RunScreenState extends ConsumerState<RunScreen> {
           paceStr: state.paceStr,
           kcal: state.kcal,
           closeIcon: RunDetailClose.x,
-          onClose: tracker.reset,
-          footer: _ResultFooter(onDone: tracker.reset),
+          onClose: _closeResult,
+          // 저장 전에는 null — 위 [_savedRun] 참조.
+          photoPath: _savedRun?.coverImageType == CoverImageType.photo
+              ? _savedRun?.coverImageUrl
+              : null,
+          onPickPhoto: _savedRun == null ? null : _changeResultCover,
+          footer: _ResultFooter(onDone: _closeResult),
         ),
     };
 

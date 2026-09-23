@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/db/app_database.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/sync/run_sync_service.dart';
-import '../../run/data/cover_photo.dart';
 import '../../run/presentation/cover_photo_sheet.dart';
 import '../../run/presentation/run_detail_view.dart';
 import '../data/records_providers.dart';
@@ -43,21 +41,6 @@ class RunDetailScreen extends ConsumerWidget {
       }
     }
 
-    /// 대표 이미지에 사진을 등록·변경한다(`camera-permission.md` 2).
-    ///
-    /// 고르기를 취소하거나 권한을 거부하면 조용히 돌아온다 — 문서가 "차단
-    /// 팝업 없이 갤러리로 우회 가능" 으로 정한 정책이라 따로 막지 않는다.
-    Future<void> pickPhoto(Run run) async {
-      final source = await showCoverPhotoSheet(context);
-      if (source == null) return;
-      final path = await pickCoverPhoto(source, id: run.id);
-      if (path == null) return;
-      await ref.read(appDatabaseProvider).upsertRun(run.copyWith(
-            coverImageType: CoverImageType.photo,
-            coverImageUrl: path,
-          ));
-    }
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -79,7 +62,8 @@ class RunDetailScreen extends ConsumerWidget {
               photoPath: run.coverImageType == CoverImageType.photo
                   ? run.coverImageUrl
                   : null,
-              onPickPhoto: () => pickPhoto(run),
+              // 저장하면 runsStreamProvider 가 알아서 새로 그린다.
+              onPickPhoto: () => changeCoverImage(context, ref, run),
               route: run.route,
               durStr: run.dur,
               distanceStr: run.km.toStringAsFixed(2),
