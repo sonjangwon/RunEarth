@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/app_user.dart';
 import '../../../services/supabase/supabase_config.dart';
+import '../../../services/sync/run_sync_service.dart';
 import 'auth_config.dart';
 import 'user_repository.dart';
 
@@ -31,9 +34,10 @@ Session? currentSession() {
 /// 흐름: 네이티브 google_sign_in(v7) 으로 idToken 획득 →
 /// `supabase.auth.signInWithIdToken` 으로 Supabase 세션 발급.
 class AuthService {
-  AuthService(this._client, this._users);
+  AuthService(this._client, this._users, this._sync);
   final SupabaseClient _client;
   final UserRepository _users;
+  final RunSyncService _sync;
 
   bool _gsiInitialized = false;
 
@@ -68,6 +72,15 @@ class AuthService {
     try {
       await _users.ensureUserRow();
     } catch (_) {}
+
+    // 밀린 기록 업로드. 로그인을 **막 끝낸** 참은 기존 호출 지점 셋(앱 시작 ·
+    // 러닝 종료 · 재연결) 어디에도 걸리지 않아, 첫 화면에 '동기화 대기' 딱지가
+    // 그대로 보였다(2026-09-23 실기기). 앱을 껐다 켜야 올라갔다.
+    //
+    // 화면이 아니라 여기에 두는 이유는 카카오·네이버가 붙어도 이 한 곳을
+    // 지나가기 때문이다. 결과를 기다리지 않는다 — 로그인 버튼의 스피너가
+    // 업로드가 끝날 때까지 돌면 안 된다.
+    unawaited(_sync.syncNow());
   }
 
   Future<void> signOut() async {
@@ -80,6 +93,7 @@ final authServiceProvider = Provider<AuthService>(
   (ref) => AuthService(
     ref.watch(supabaseClientProvider),
     ref.watch(userRepositoryProvider),
+    ref.watch(runSyncServiceProvider),
   ),
 );
 
