@@ -116,17 +116,42 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// 기록 목록의 정렬 — **최신 순**(records.md 3-1).
+  ///
+  /// 세 칸을 순서대로 본다. 예전에는 `date` 하나만 봤는데 두 가지가 어긋났다
+  /// (2026-09-25 사용자 발견).
+  ///
+  /// - `date` 는 `"09.23"` 같은 **문자열**이라 연도를 못 본다. `"12.31"` >
+  ///   `"01.01"` 이므로 해가 바뀌면 **작년 12월 기록이 목록 맨 위로 온다.**
+  ///   그래서 [year] 를 먼저 본다
+  /// - 같은 날 기록은 정렬 키가 **완전히 같아** 순서가 정해지지 않고, SQLite 가
+  ///   저장 순서(= 오래된 것부터)로 돌려준다. 하루에 두 번 뛰면 **먼저 뛴 것이
+  ///   위에** 있었다. 그래서 [id] 를 마지막에 본다
+  ///
+  /// ⚠️ **마지막 칸은 `id` 가 시각을 들고 있다는 데 기댄다.** 앱이 만드는 id 는
+  /// `run_<microsecondsSinceEpoch>`(자릿수가 같아 문자열 비교로도 시간순)이다.
+  /// 이 전제가 깨지는 기록이 들어오면 — **웨어러블 동기화**로 워치 기록을
+  /// 가져오는 때가 그렇다 — 같은 날 순서가 다시 어긋난다. 그때는 `startedAt`
+  /// 시각 칼럼이 필요하다. `wearable-sync.md` 4 의 "시간대가 겹치는 워크아웃"
+  /// 판정도 어차피 그 값을 요구하므로 선행 조건으로 적어뒀다.
+  ///
+  /// (2026-09-23 에 직접 넣은 시드 기록 `seed_1`~`seed_6` 도 이 규칙 밖이지만
+  /// 날짜가 서로 겹치지 않아 지금은 드러나지 않는다.)
+  List<OrderClauseGenerator<$RunsTable>> get _latestFirst => [
+        (t) => OrderingTerm.desc(t.year),
+        (t) => OrderingTerm.desc(t.date),
+        (t) => OrderingTerm.desc(t.id),
+      ];
+
   /// 전체 기록 (최신순). 삭제 정책 없음(records.md) — 조회/추가만 제공.
   Future<List<Run>> getAllRuns() async {
-    final rows = await (select(runs)
-          ..orderBy([(t) => OrderingTerm.desc(t.date)]))
-        .get();
+    final rows = await (select(runs)..orderBy(_latestFirst)).get();
     return rows.map((r) => r.toModel()).toList();
   }
 
   /// 기록 변경을 실시간 관찰 (기록 탭 자동 갱신용).
   Stream<List<Run>> watchAllRuns() {
-    return (select(runs)..orderBy([(t) => OrderingTerm.desc(t.date)]))
+    return (select(runs)..orderBy(_latestFirst))
         .watch()
         .map((rows) => rows.map((r) => r.toModel()).toList());
   }
