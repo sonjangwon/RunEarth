@@ -230,7 +230,13 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       // 결과 화면은 기록 상세와 같은 컴포넌트다(기능정의서 5). 여기서는
       // 닫기를 ✕ 로 두고 prerun 으로 초기화한다.
       RunSessionPhase.stopped => RunDetailView(
-          title: '러닝 완료',
+          // 워터마크용 날짜. 저장된 기록이 있으면 그 값을, 저장 전이면 오늘로
+          // 낸다 — `buildRun` 도 종료 시각을 쓰므로 둘이 어긋나지 않는다.
+          // 예전에는 `'러닝 완료'` 를 넘겨 워터마크가 `RUN EARTH · 러닝 완료`
+          // 로 찍혔다(2026-09-25 발견).
+          dateLabel: _savedRun != null
+              ? '${_savedRun!.year}.${_savedRun!.date}'
+              : _todayLabel(),
           route: state.route,
           durStr: state.elapsedStr,
           distanceStr: state.distanceStr,
@@ -263,6 +269,14 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         ),
       ),
     );
+  }
+
+  /// 워터마크용 오늘 날짜 — `2026.09.23`. 저장이 끝나기 전에만 쓴다.
+  static String _todayLabel() {
+    final now = DateTime.now();
+    final mm = now.month.toString().padLeft(2, '0');
+    final dd = now.day.toString().padLeft(2, '0');
+    return '${now.year}.$mm.$dd';
   }
 }
 

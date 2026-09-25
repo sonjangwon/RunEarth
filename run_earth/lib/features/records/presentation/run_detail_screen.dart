@@ -57,7 +57,7 @@ class RunDetailScreen extends ConsumerWidget {
               return _Missing(message: '기록을 찾을 수 없어요', onClose: close);
             }
             return RunDetailView(
-              title: '${run.date} ${run.day}',
+              dateLabel: '${run.year}.${run.date}',
               // 사진 모드는 등록된 사진이 있을 때만(`run-flow.md` 6).
               photoPath: run.coverImageType == CoverImageType.photo
                   ? run.coverImageUrl

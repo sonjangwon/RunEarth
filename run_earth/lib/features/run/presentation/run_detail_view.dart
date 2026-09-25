@@ -30,12 +30,23 @@ enum RunDetailClose {
 /// 좌표만 있으면 어디서든 다시 그릴 수 있고(2026-09-11 결정), 렌더가 실패했거나
 /// 파일이 사라진 기록도 정상적으로 보인다.
 ///
-/// > Figma 의 **사진 모드**(Strava 식)는 아직 없다 — 사진 기능이 붙을 때
-/// > 카메라 버튼과 함께 만든다(`docs/figma-alignment.md` 6번).
+/// 사진이 있으면 **사진 모드**(Strava 식 — 사진 배경 + 왼쪽 세로 수치),
+/// 없으면 **경로 모드**(다크맵 + 격자 + 네온 글로우 + 중앙 경로)로 그린다.
+/// 2026-09-23 에 사진 모드가 붙어 둘 다 있다.
 class RunDetailView extends StatelessWidget {
   const RunDetailView({
     super.key,
-    required this.title,
+
+    /// 워터마크에 찍히는 날짜 — `2026.09.23` (`RUN EARTH · {dateLabel}`).
+    ///
+    /// **이 값이 쓰이는 곳은 워터마크뿐이다.** 예전 이름이 `title` 이었는데
+    /// 그 탓에 달리기 결과 화면이 `'러닝 완료'` 를 넘겨 워터마크가
+    /// `RUN EARTH · 러닝 완료` 로 찍히고 있었다(2026-09-25 발견).
+    ///
+    /// 연도를 붙이는 이유: 워터마크는 **앱 밖으로 나가는 문구**다. 공유한
+    /// 사진을 나중에 볼 때 필요한 건 연도이고, 요일은 앱 안 기록 카드에
+    /// 이미 있다. Figma 정본도 `2026.{date}` 다.
+    required this.dateLabel,
     required this.route,
     required this.durStr,
     required this.distanceStr,
@@ -49,7 +60,7 @@ class RunDetailView extends StatelessWidget {
     this.onPickPhoto,
   });
 
-  final String title;
+  final String dateLabel;
   final List<LatLngPoint> route;
   final String durStr;
   final String distanceStr;
@@ -79,7 +90,7 @@ class RunDetailView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _Hero(
-            title: title,
+            dateLabel: dateLabel,
             route: route,
             durStr: durStr,
             distanceStr: distanceStr,
@@ -125,7 +136,7 @@ class RunDetailView extends StatelessWidget {
 /// 4:5 히어로 — 다크맵 배경 + 그리드 + 네온 글로우 + 중앙 경로 + 하단 수치.
 class _Hero extends StatelessWidget {
   const _Hero({
-    required this.title,
+    required this.dateLabel,
     required this.route,
     required this.durStr,
     required this.distanceStr,
@@ -138,7 +149,7 @@ class _Hero extends StatelessWidget {
     this.onPickPhoto,
   });
 
-  final String title;
+  final String dateLabel;
   final List<LatLngPoint> route;
   final String durStr;
   final String distanceStr;
@@ -168,7 +179,7 @@ class _Hero extends StatelessWidget {
               distanceStr: distanceStr,
               paceStr: paceStr,
               kcal: kcal,
-              title: title,
+              dateLabel: dateLabel,
             )
           else
             _PhotoHeroBody(
@@ -177,7 +188,7 @@ class _Hero extends StatelessWidget {
               distanceStr: distanceStr,
               paceStr: paceStr,
               route: route,
-              title: title,
+              dateLabel: dateLabel,
             ),
           // 상단 오버레이 — 닫기 + 뱃지.
           Positioned(
@@ -586,7 +597,7 @@ class _RouteHeroBody extends StatelessWidget {
     required this.distanceStr,
     required this.paceStr,
     required this.kcal,
-    required this.title,
+    required this.dateLabel,
   });
 
   final List<LatLngPoint> route;
@@ -594,7 +605,7 @@ class _RouteHeroBody extends StatelessWidget {
   final String distanceStr;
   final String paceStr;
   final int kcal;
-  final String title;
+  final String dateLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -695,7 +706,7 @@ class _RouteHeroBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   // 워터마크 — 이 화면을 그대로 공유해도 출처가 남게.
-                  Text('RUN EARTH · $title',
+                  Text('RUN EARTH · $dateLabel',
                       style: AppTextStyles.mono(
                           fontSize: 8, color: Colors.white.withAlpha(0x38))),
                 ],
@@ -719,7 +730,7 @@ class _PhotoHeroBody extends StatelessWidget {
     required this.distanceStr,
     required this.paceStr,
     required this.route,
-    required this.title,
+    required this.dateLabel,
   });
 
   final String photoPath;
@@ -727,7 +738,7 @@ class _PhotoHeroBody extends StatelessWidget {
   final String distanceStr;
   final String paceStr;
   final List<LatLngPoint> route;
-  final String title;
+  final String dateLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -827,7 +838,7 @@ class _PhotoHeroBody extends StatelessWidget {
         Positioned(
           left: 16,
           bottom: 14,
-          child: Text('RUN EARTH · $title',
+          child: Text('RUN EARTH · $dateLabel',
               style: AppTextStyles.mono(
                   fontSize: 8, color: Colors.white.withAlpha(0x4D))),
         ),
