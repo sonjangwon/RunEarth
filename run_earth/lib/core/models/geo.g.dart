@@ -11,6 +11,8 @@ _LatLngPoint _$LatLngPointFromJson(Map<String, dynamic> json) => _LatLngPoint(
   lng: (json['lng'] as num).toDouble(),
   t: (json['t'] as num?)?.toInt(),
   e: (json['e'] as num?)?.toInt(),
+  a: (json['a'] as num?)?.toInt(),
+  s: (json['s'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$LatLngPointToJson(_LatLngPoint instance) =>
@@ -19,4 +21,6 @@ Map<String, dynamic> _$LatLngPointToJson(_LatLngPoint instance) =>
       'lng': instance.lng,
       't': instance.t,
       'e': instance.e,
+      'a': instance.a,
+      's': instance.s,
     };

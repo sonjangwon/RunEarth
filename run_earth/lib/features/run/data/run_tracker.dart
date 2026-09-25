@@ -307,6 +307,11 @@ class RunTracker extends Notifier<RunSessionState> {
       // 일시정지 시간이 빠진 누적 시간. 구간 페이스는 이걸로 낸다 —
       // 벽시계(t)로 내면 쉰 시간이 그 구간에 통째로 얹힌다.
       e: state.elapsed.inMilliseconds,
+      // 진단용으로 쌓아만 둔다. 지금은 아무것도 거르지 않는다(geo.dart 주석).
+      // `has*` 가 false 면 값이 0.0 플레이스홀더로 오므로 **null 로 남긴다** —
+      // 0 을 그대로 적으면 '오차 0m = 완벽한 좌표'로 읽힌다.
+      a: pos.hasAccuracy ? pos.accuracy.round() : null,
+      s: pos.hasSpeed ? (pos.speed * 100).round() : null,
     );
 
     // 지도와 'GPS 대기' 배지가 보는 현재 위치는 **항상** 갱신한다.
@@ -336,6 +341,17 @@ class RunTracker extends Notifier<RunSessionState> {
     final elapsedMs = point.e! - last.e!;
     final stale = elapsedMs > _staleFixAfter.inMilliseconds;
     if (!stale && elapsedMs > 0 && meters / (elapsedMs / 1000) > _maxSpeedMps) {
+      // 버린 좌표는 경로에 남지 않으니 로그가 유일한 흔적이다. 다음 야외
+      // 검증에서 "필터가 버린 게 정말 정확도 나쁜 좌표였나"를 보려면 필요하다.
+      // 정확도가 좋았는데도 튀었다면 정확도 필터는 답이 아니라는 뜻이다.
+      //
+      // 최소 이동거리(5m)에 걸린 좌표는 일부러 안 찍는다 — 제자리에 서 있으면
+      // 매 좌표가 걸려서 로그가 밀려나고, 이쪽은 설계대로 버리는 것이라
+      // 들여다볼 이유가 없다.
+      final derived = (meters / (elapsedMs / 1000)).toStringAsFixed(1);
+      final device = point.s == null ? '?' : (point.s! / 100).toStringAsFixed(1);
+      debugPrint('[gps] 버림 — ${meters.round()}m / ${elapsedMs}ms '
+          '(파생 ${derived}m/s · 기기 ${device}m/s), 정확도 ${point.a ?? '?'}m');
       return;
     }
 
