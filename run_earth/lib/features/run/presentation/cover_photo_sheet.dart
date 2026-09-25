@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,8 @@ import '../../../core/models/enums.dart';
 import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/storage/cover_storage.dart';
+import '../../../services/sync/run_sync_service.dart';
 import '../data/cover_photo.dart';
 
 /// 대표 이미지 바텀시트에서 고를 수 있는 것.
@@ -59,7 +63,19 @@ Future<Run?> changeCoverImage(
       next = run.copyWith(coverImageType: CoverImageType.photo);
   }
 
-  await ref.read(appDatabaseProvider).upsertRun(next);
+  final db = ref.read(appDatabaseProvider);
+  await db.upsertRun(next);
+
+  // 이미 서버에 올라간 기록을 고친 것이면 **다시 업로드 대기로 돌린다.**
+  // `toCompanion()` 은 `syncedAt` 을 건드리지 않아(그래야 업로드 성공 표시가
+  // 살아 있다) 대표 이미지만 바꿔서는 재업로드를 타지 않았다 — 서버의
+  // `cover_image_type`·`cover_image_url` 이 옛 값으로 남았다(2026-09-23 실측).
+  await db.markUnsynced(next.id);
+
+  // 사용자가 방금 누른 변경이라 바로 올린다. 결과는 기다리지 않는다 —
+  // 오프라인이면 큐에 남고 재연결 때 올라간다(offline-handling.md 2 케이스 D).
+  unawaited(ref.read(runSyncServiceProvider).syncNow());
+
   return next;
 }
 

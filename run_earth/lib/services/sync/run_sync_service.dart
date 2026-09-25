@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/db/app_database.dart';
 import '../../core/models/run.dart';
 import '../connectivity/connectivity_providers.dart';
+import '../storage/cover_storage.dart';
 import '../supabase/supabase_config.dart';
 
 /// 로컬 기록을 서버 `public.runs` 로 올리는 동기화.
@@ -54,7 +55,16 @@ class RunSyncService {
       var failed = 0;
       for (final run in pending) {
         try {
-          await _client.from('runs').upsert(_payload(run, userId));
+          // 사진을 먼저 올린다. 기록 행이 가리키는 경로가 실제로 있어야
+          // 한다 — 행은 올라갔는데 사진이 없는 상태를 만들지 않는다.
+          // 파일이 사라졌거나 사진이 아니면 null 이 와서 그냥 넘어간다.
+          final coverPath = await uploadCoverPhoto(
+            _client,
+            userId: userId,
+            runId: run.id,
+            localPath: run.coverImageUrl,
+          );
+          await _client.from('runs').upsert(_payload(run, userId, coverPath));
           await _db.markSynced(run.id);
         } catch (e) {
           // 정책 3 — 실패한 건은 대기 상태로 남겨두고 다음 건을 계속 올린다.
@@ -93,7 +103,7 @@ class RunSyncService {
   /// 서버 컬럼(snake_case)으로 변환.
   ///
   /// enum 문자열은 모델의 JSON 값을 그대로 쓴다(코드 정본과 어긋나지 않도록).
-  Map<String, dynamic> _payload(Run run, String userId) {
+  Map<String, dynamic> _payload(Run run, String userId, String? coverPath) {
     final json = run.toJson();
     return {
       'id': run.id,
@@ -108,10 +118,15 @@ class RunSyncService {
       'year': run.year,
       'month': run.month,
       'cover_image_type': json['coverImageType'],
-      // 커버 이미지는 서버에 올리지 않는다(2026-09-12 결정).
-      // 현재 값은 이 기기의 로컬 파일 경로라 다른 기기에서 의미가 없고,
-      // route 좌표만 있으면 어디서든 다시 렌더할 수 있어 Storage 가 불필요하다.
-      'cover_image_url': null,
+      // **사용자가 찍은 사진만** 올린다(2026-09-23 결정). 2026-09-12 에 "커버
+      // 이미지를 올리지 않는다"고 정한 근거는 "route 좌표만 있으면 어디서든 다시
+      // 렌더할 수 있다" 였는데, 사진은 좌표로 복원할 수 없어 그 근거가 성립하지
+      // 않는다. 자동 생성 경로 이미지(route_*.png)는 여전히 안 올린다.
+      //
+      // 들어가는 값은 URL 이 아니라 **Storage 객체 경로**(`{uid}/{id}.jpg`)다.
+      // 버킷이 private 이라 공개 URL 이 없고 signed URL 은 만료된다.
+      // 로컬의 `coverImageUrl` 도 파일 경로를 담고 있어 성격이 같다.
+      'cover_image_url': coverPath,
       'marathon_challenge_id': run.marathonChallengeId,
       'marathon_course_id': run.marathonCourseId,
       'gps_verified': run.gpsVerified,

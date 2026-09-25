@@ -22,3 +22,4 @@ SQL 을 그대로 기록해둔 것이다.
 |---|---|---|
 | `20260912020000_create_users.sql` | `public.users` + RLS 3종 | 2026-09-12 |
 | `20260912030000_create_runs.sql` | `public.runs` + 인덱스 + RLS 3종 | 2026-09-12 |
+| `20260925010000_create_cover_storage.sql` | `run-covers` Storage 버킷(private) + `storage.objects` RLS 3종 | **대시보드 실행 대기** |

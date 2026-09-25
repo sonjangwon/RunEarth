@@ -165,6 +165,19 @@ class AppDatabase extends _$AppDatabase {
       (update(runs)..where((t) => t.id.equals(id)))
           .write(RunsCompanion(syncedAt: Value(DateTime.now())));
 
+  /// 이미 올라간 기록을 고친 뒤 **다시 업로드 대기로 돌린다.**
+  ///
+  /// [upsertRun] 만으로는 안 된다. `toCompanion()` 에 `syncedAt` 이 없어서
+  /// `insertOnConflictUpdate` 가 그 칸을 SET 절에 넣지 않고, 옛 업로드 시각이
+  /// 그대로 남는다. 일부러 그렇게 뒀다 — 모델에 `syncedAt` 을 실으면 수정이
+  /// 옛 값을 덮어써 업로드 성공 표시를 잃는다([watchUnsyncedIds] 주석).
+  ///
+  /// 그래서 "고쳤으니 다시 올려라"는 **따로 말해준다.** 지금 쓰는 곳은 대표
+  /// 이미지 변경(`cover_photo_sheet.dart`) 한 곳이다.
+  Future<void> markUnsynced(String id) =>
+      (update(runs)..where((t) => t.id.equals(id)))
+          .write(const RunsCompanion(syncedAt: Value(null)));
+
   // ── 진행 중 러닝 스냅샷 ──────────────────────────────────────
 
   /// 진행 중 러닝 스냅샷 저장(덮어쓰기). 항상 id=0 한 행만 유지한다.

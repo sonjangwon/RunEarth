@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../services/storage/cover_storage.dart';
+
 /// 대표 이미지로 쓸 사진을 고르고 앱 폴더에 보관한다.
 ///
 /// 정본: `camera-permission.md`(촬영/갤러리 두 갈래) · `run-flow.md` 6
@@ -15,20 +17,8 @@ import 'package:path_provider/path_provider.dart';
 const double _maxSide = 1080;
 const int _quality = 85;
 
-/// 앱이 보관하는 사진 파일 이름 앞에 붙는 말.
-///
-/// 경로 렌더 PNG(`route_*.png`, `route_image_renderer.dart`)와 같은 폴더에
-/// 살아서 이름으로 가린다. `coverImageUrl` 에 들어 있는 것이 사진인지
-/// 경로 이미지인지 판단하는 데 쓴다 — [isCoverPhoto].
-const _photoPrefix = 'photo_';
-
-/// [path] 가 **사용자가 등록한 사진**인지. 경로 렌더 PNG 면 false.
-///
-/// 대표 이미지를 경로로 되돌려도 `coverImageUrl` 은 지우지 않는다. 그래야
-/// "사진 ↔ 경로 이미지 자유 전환"(`run-flow.md` 27-28)이 사진을 다시 고르지
-/// 않고도 된다. 대신 지금 들고 있는 게 사진인지 알아야 해서 이 판정이 있다.
-bool isCoverPhoto(String? path) =>
-    path != null && path.split(Platform.pathSeparator).last.startsWith(_photoPrefix);
+/// 파일 이름 규칙(`photo_*.jpg`)과 [isCoverPhoto] 는
+/// `services/storage/cover_storage.dart` 에 있다 — 동기화도 같은 판정을 쓴다.
 
 /// 사진을 가져올 곳.
 enum CoverPhotoSource {
@@ -64,7 +54,8 @@ Future<String?> pickCoverPhoto(CoverPhotoSource source, {String? id}) async {
   if (picked == null) return null;
 
   final dir = await getApplicationDocumentsDirectory();
-  final name = '$_photoPrefix${id ?? DateTime.now().millisecondsSinceEpoch}.jpg';
+  final name =
+      coverPhotoFileName(id ?? '${DateTime.now().millisecondsSinceEpoch}');
   final dest = File('${dir.path}${Platform.pathSeparator}$name');
   await dest.writeAsBytes(await picked.readAsBytes());
   return dest.path;
