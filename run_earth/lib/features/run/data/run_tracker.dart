@@ -520,6 +520,32 @@ class RunTracker extends Notifier<RunSessionState> {
   /// 커버 이미지는 만들지 않는다 — `route` 좌표만 있으면 어디서든 다시 그릴
   /// 수 있고(2026-09-11 결정), 렌더는 화면 계층의 일이다.
   Future<void> _finalizeExpired(ActiveRunRow row) async {
+    // **아무것도 안 담긴 스냅샷은 기록으로 만들지 않는다**(2026-09-25).
+    //
+    // [_startSnapshotTimer] 가 시작 직후 한 번 저장하기 때문에, START 를 누른
+    // 찰나에 앱이 죽으면 셋 다 빈 스냅샷이 남는다. 그걸 6시간 뒤에 확정하면
+    // `0.0km · 00:00 · 좌표 없음` 짜리 기록이 생기고 서버까지 올라간다
+    // (2026-09-25 실측 — 9/23 에 남아 있던 스냅샷이 그렇게 기록이 됐다).
+    //
+    // **0km 정책을 건드리는 게 아니다.** `records.md` 가 "거리 0 도 저장은
+    // 막지 않는다"고 정했고 그건 그대로다 — 뛰었는데 GPS 를 못 잡은 기록은
+    // 시간이 쌓여 있어(9/23 예: 1분 37초 · 0.00km) 이 조건에 안 걸린다.
+    // 여기서 거르는 건 **달린 시간조차 0 인** 것, 즉 기록이랄 게 없는 경우다.
+    if (row.elapsedSeconds == 0 &&
+        row.distanceKm == 0 &&
+        row.routePoints.isEmpty) {
+      debugPrint('[run] 빈 스냅샷 — 기록으로 만들지 않고 버린다');
+      try {
+        await ref.read(appDatabaseProvider).clearActiveRun();
+      } catch (e) {
+        // 못 지워도 다음 실행에서 다시 이 경로를 탄다. 기록은 안 생긴다.
+        debugPrint('[run] 빈 스냅샷 정리 실패: $e');
+      }
+      _startedAt = null;
+      state = RunSessionState.initial(row.runType);
+      return;
+    }
+
     state = RunSessionState(
       phase: RunSessionPhase.stopped,
       runType: row.runType,
