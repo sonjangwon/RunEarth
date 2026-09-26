@@ -12,10 +12,6 @@ import '../../auth/data/user_repository.dart';
 import '../../records/data/records_providers.dart';
 import '../data/home_providers.dart';
 
-// 여정 히어로 배경 (개발용 임시 Unsplash). journey.md 는 "다음 목적지 도시"별
-// 이미지를 규정하나 도시별 에셋이 [미확정] → 우선 단일 임시 이미지.
-const _journeyHeroImg = 'photo-1534430480872-3498386e7856';
-
 // 여정 히어로 높이 — 화면이 남으면 히어로가 먹는다.
 //
 // Figma 정본의 폰 프레임은 320×640 이라 104 로도 홈이 거의 꽉 찬다. 그런데
@@ -167,13 +163,20 @@ class _JourneyCard extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: Image.network(
-                    unsplashUrl(_journeyHeroImg, w: 800, h: 460),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                // 배경은 **다음 목적지** 도시 것이다(journey.md §4) — 도시를
+                // 지날 때마다 `toCity` 가 바뀌므로 그림도 따라 바뀐다.
+                //
+                // 실패해도 아무것도 그리지 않는다. 뒤에 카드의 기본
+                // 그라디언트가 이미 깔려 있어 조용히 단색으로 남는다
+                // (§7 "배경 이미지는 실패해도 카드 자체는 정상 작동").
+                if (journey.toCity.imageKey.isNotEmpty)
+                  Positioned.fill(
+                    child: Image.network(
+                      unsplashUrl(journey.toCity.imageKey, w: 800, h: 460),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
                   ),
-                ),
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
