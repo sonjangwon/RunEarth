@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../core/models/air_quality.dart';
@@ -39,6 +40,11 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   /// 눌러도 아무 일 없는 버튼을 잠깐 보여주지 않으려는 것이다.
   Run? _savedRun;
 
+  /// 위치 권한 2차 안내를 이미 보여줬는가(global-states.md 3).
+  /// 최종 차단 팝업을 띄운 뒤 false 로 되돌려, 다음 START 는 다시 2차부터
+  /// 시작하게 한다 — 그래서 기기에 저장하지 않는다.
+  bool _locationRationaleShown = false;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +63,13 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   /// 진행한다.
   Future<void> _onStart() async {
     final tracker = ref.read(runTrackerProvider.notifier);
+
+    // 위치 권한을 **가장 먼저** 챙긴다. 거부면 러닝이 아예 시작되지 않는데
+    // 알림·절전부터 묻는 건 순서가 거꾸로다 — 다 허락해놓고 마지막에
+    // "시작할 수 없어요"를 보게 된다.
+    if (!await _ensureLocationPermission()) return;
+    if (!mounted) return;
+
     var permission = await tracker.notificationPermission();
 
     // 아직 물어본 적 없으면 왜 필요한지 먼저 설명한다. 맥락 없이 팝업부터
@@ -89,6 +102,115 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     }
 
     await tracker.start();
+  }
+
+  /// 위치 권한 3단계 (global-states.md 3 표).
+  ///
+  /// | 단계 | 조건 | 화면 |
+  /// |---|---|---|
+  /// | 1차 | 아직 안 물어봄 | OS 시스템 다이얼로그 |
+  /// | 2차 안내 | 거부 + 첫 START | 앱 모달(설정 이동 유도) |
+  /// | 최종 차단 | 거부 + 재시도 | 블로킹 팝업(닫기만) |
+  ///
+  /// 진행해도 되면 true. false 면 START 를 멈춘다.
+  Future<bool> _ensureLocationPermission() async {
+    final tracker = ref.read(runTrackerProvider.notifier);
+
+    // 권한과 별개로 기기 GPS 자체가 꺼져 있을 수 있다. 이건 앱이 손쓸 수
+    // 없어 권한 흐름에 섞지 않고 따로 알린다.
+    if (!await tracker.isLocationServiceEnabled()) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('위치 서비스가 꺼져 있어요. 설정에서 켜주세요.')),
+      );
+      return false;
+    }
+
+    var state = await tracker.locationPermission();
+
+    // 1차 — 아직 물어본 적 없으면 OS 다이얼로그.
+    if (state == LocationPermissionState.notDetermined) {
+      state = await tracker.requestLocationPermission();
+    }
+    if (state == LocationPermissionState.granted) return true;
+    if (!mounted) return false;
+
+    // 2차 — 왜 필요한지 앱이 직접 설명하고 설정으로 보낸다.
+    //
+    // 여기서 `requestLocationPermission()` 을 다시 부르지 않는다. 한 번
+    // 거부한 뒤에는 시스템 다이얼로그가 뜨지 않고 즉시 거부가 돌아오기
+    // 때문이다(global-states.md 3 플랫폼 제약). 부르면 사용자에겐 아무 일도
+    // 일어나지 않는 것처럼 보인다.
+    if (!_locationRationaleShown) {
+      _locationRationaleShown = true;
+      final goSettings = await _showLocationRationale();
+      if (goSettings) await openAppSettings();
+      return false;
+    }
+
+    // 최종 차단 — 닫기만 하고 권한은 그대로다.
+    await _showLocationBlocked();
+    // 플래그를 되돌린다: "팝업을 닫고 다시 START 를 누르면 2차 안내부터
+    // 반복된다"(global-states.md 8). 그래서 저장할 상태가 없다 — 앱을 껐다
+    // 켜도 어차피 2차부터다.
+    _locationRationaleShown = false;
+    return false;
+  }
+
+  /// 2차 안내 모달. [true] 면 설정 앱으로 보낸다.
+  Future<bool> _showLocationRationale() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('러닝 기록을 위해 위치 권한이 필요해요',
+            style: AppTextStyles.sans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground)),
+        content: Text(
+          '달린 거리와 경로는 위치로만 기록할 수 있어요.\n'
+          '설정에서 위치 권한을 허용해주세요.',
+          style: AppTextStyles.sans(
+              fontSize: 13, color: AppColors.mutedForeground),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('취소',
+                style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('설정으로 이동',
+                style: AppTextStyles.sans(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// 최종 차단 팝업. 확인을 눌러도 권한 상태는 변하지 않는다.
+  Future<void> _showLocationBlocked() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        content: Text(
+          '위치 권한이 없으면 러닝을 시작할 수 없어요.',
+          style: AppTextStyles.sans(
+              fontSize: 14, color: AppColors.foreground),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('확인',
+                style: AppTextStyles.sans(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 절전 제외가 왜 필요한지 설명하는 사전 안내. [true] 면 시스템 팝업으로 간다.

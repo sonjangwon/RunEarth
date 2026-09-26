@@ -608,6 +608,46 @@ class RunTracker extends Notifier<RunSessionState> {
     return status.isGranted;
   }
 
+  // ── 위치 권한 (global-states.md 3 '위치 권한 3단계') ────────────
+
+  /// 현재 위치 권한 상태. **묻지 않고 읽기만 한다.**
+  ///
+  /// 화면 쪽이 `geolocator` 의 다섯 가지 `LocationPermission` 대신 문서가
+  /// 정의한 세 가지(`global-states.md` 6)로 보게 줄인다.
+  ///
+  /// `deniedForever` 도 [LocationPermissionState.denied] 로 접는다 — 화면이
+  /// 할 일이 같기 때문이다. 어느 쪽이든 앱에서 다시 물을 수 없고, 설정
+  /// 앱으로 보내는 것 말고는 방법이 없다.
+  Future<LocationPermissionState> locationPermission() async {
+    return _mapLocationStatus(await Geolocator.checkPermission());
+  }
+
+  /// OS 시스템 위치 권한 다이얼로그를 띄우고 결과를 돌려준다.
+  ///
+  /// 한 번 거부한 뒤에는 **다이얼로그가 뜨지 않고 즉시 거부가 돌아온다**
+  /// (`global-states.md` 3 플랫폼 제약). 그래서 이 메서드는 아직 물어본 적
+  /// 없는 상태([LocationPermissionState.notDetermined])에서만 의미가 있다.
+  Future<LocationPermissionState> requestLocationPermission() async {
+    return _mapLocationStatus(await Geolocator.requestPermission());
+  }
+
+  /// 기기의 위치 서비스(GPS) 자체가 켜져 있는지. 권한과 별개다 —
+  /// 권한을 허용해도 기기 GPS 가 꺼져 있으면 좌표가 안 온다.
+  Future<bool> isLocationServiceEnabled() =>
+      Geolocator.isLocationServiceEnabled();
+
+  LocationPermissionState _mapLocationStatus(LocationPermission permission) =>
+      switch (permission) {
+        LocationPermission.always ||
+        LocationPermission.whileInUse =>
+          LocationPermissionState.granted,
+        LocationPermission.denied ||
+        LocationPermission.deniedForever =>
+          LocationPermissionState.denied,
+        // unableToDetermine — 아직 판정 전으로 본다(물어보면 된다).
+        _ => LocationPermissionState.notDetermined,
+      };
+
   NotificationPermission _mapNotificationStatus(PermissionStatus status) {
     if (status.isGranted) return NotificationPermission.granted;
     if (status.isPermanentlyDenied || status.isRestricted) {
@@ -616,6 +656,12 @@ class RunTracker extends Notifier<RunSessionState> {
     return NotificationPermission.askable;
   }
 
+  /// 스트림을 열기 직전의 **안전망**. 화면이 START 전에 이미 3단계 흐름으로
+  /// 권한을 챙기지만(`run_screen._ensureLocationPermission`), 이 클래스가
+  /// 화면 없이도 스스로를 지키게 남겨둔다 — 복원(`restoreIfAny`) 경로처럼
+  /// 화면을 거치지 않고 스트림을 여는 곳이 있다.
+  ///
+  /// 허용된 경우에는 아무것도 하지 않고 통과한다.
   Future<bool> _ensurePermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       state = state.copyWith(error: '위치 서비스가 꺼져 있어요. 설정에서 켜주세요.');
