@@ -179,7 +179,10 @@ type User = {
 - [x] 로그아웃 탭 시 확인 다이얼로그가 뜨고, 확정 시 로그인 화면으로 이동한다
   — 2026-09-26 배선. `profile_screen.dart` `_confirmSignOut`. 로그인 화면
   이동은 라우터 세션 가드(`app_router.dart` `_guard` + `onAuthStateChange`)가
-  담당하므로 화면에서 `go()` 하지 않는다. 실기기 검증은 미완
+  담당하므로 화면에서 `go()` 하지 않는다.
+  **2026-09-26 실기기 검증 완료** — 로그아웃 → 로그인 화면 이동 → 구글
+  재로그인까지 정상. `signOut()` 의 GoogleSignIn 초기화 수정(같은 커밋)도
+  이 경로로 함께 확인됐다
 - [x] 회원탈퇴 확정 시 30일 유예 안내가 노출되고, 이후 로그인 화면으로 이동한다
   — 2026-09-26. `profile_screen.dart` `_confirmDeleteAccount`(2단계 확인)
   + `AuthService.deleteAccount()`. 로그인 화면 이동은 로그아웃과 같이
