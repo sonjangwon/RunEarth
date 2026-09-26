@@ -312,9 +312,17 @@ class _SettingsSection extends ConsumerWidget {
           (label: '로그아웃', onTap: () => _confirmSignOut(context, ref)),
         ]),
         const SizedBox(height: 20),
-        Text('회원탈퇴',
-            style: AppTextStyles.sans(
-                fontSize: 12, color: AppColors.mutedForeground)),
+        // 회원탈퇴는 카드 밖 작은 글씨다(Figma·profile-settings.md 3 "하단").
+        // 눈에 띄게 만들면 실수로 누른다.
+        InkWell(
+          onTap: () => _confirmDeleteAccount(context, ref),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text('회원탈퇴',
+                style: AppTextStyles.sans(
+                    fontSize: 12, color: AppColors.mutedForeground)),
+          ),
+        ),
         const SizedBox(height: 12),
         Text(appVersion,
             style: AppTextStyles.mono(
@@ -385,6 +393,85 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text('로그아웃에 실패했어요: $e')));
+  }
+}
+
+/// 회원탈퇴 — 1차 경고(30일 유예 안내) → 최종 확인 → 소프트 삭제 + 전체
+/// 기기 로그아웃 (profile-settings.md 3 "회원탈퇴 플로우").
+///
+/// 2단계인 것은 문서가 그렇게 정해서다. 재인증 절차는 없다.
+Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+  final warned = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text('정말 탈퇴하시겠어요?',
+          style: AppTextStyles.sans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.foreground)),
+      content: Text(
+        '탈퇴 시 계정과 모든 러닝 기록이 30일간 보관돼요.\n'
+        '30일 이내 같은 계정으로 다시 로그인하면 자동으로\n'
+        '복구되고, 30일이 지나면 영구 삭제돼요.',
+        style:
+            AppTextStyles.sans(fontSize: 13, color: AppColors.mutedForeground),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('취소',
+              style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('탈퇴할게요',
+              style: AppTextStyles.sans(color: AppColors.accent)),
+        ),
+      ],
+    ),
+  );
+  if (warned != true || !context.mounted) return;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text('마지막 확인이에요',
+          style: AppTextStyles.sans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.foreground)),
+      content: Text(
+        '탈퇴하면 모든 기기에서 로그아웃돼요.',
+        style:
+            AppTextStyles.sans(fontSize: 13, color: AppColors.mutedForeground),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('돌아가기',
+              style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('탈퇴',
+              style: AppTextStyles.sans(color: AppColors.accent)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  try {
+    await ref.read(authServiceProvider).deleteAccount();
+  } catch (e) {
+    // 여기서 실패하면 세션이 그대로 남는다 — 탈퇴가 반쯤 된 상태를 만들지
+    // 않으려고 `deleteAccount` 가 소프트 삭제부터 하고 로그아웃한다.
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('탈퇴에 실패했어요: $e')));
   }
 }
 

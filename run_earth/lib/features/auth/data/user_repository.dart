@@ -29,10 +29,19 @@ class UserRepository {
 
     final existing = await _client
         .from(_table)
-        .select('id')
+        .select('id, deleted_at')
         .eq('id', user.id)
         .maybeSingle();
-    if (existing != null) return;
+    if (existing != null) {
+      // 탈퇴 대기 중인 계정으로 다시 로그인했으면 되살린다
+      // (profile-settings.md 4 "탈퇴 대기 → 재로그인 시 자동 복구").
+      if (existing['deleted_at'] != null) {
+        await _client
+            .from(_table)
+            .update({'deleted_at': null}).eq('id', user.id);
+      }
+      return;
+    }
 
     await _client.from(_table).insert({
       'id': user.id,
@@ -73,6 +82,20 @@ class UserRepository {
     final user = _client.auth.currentUser;
     if (user == null) throw StateError('로그인 상태가 아닙니다.');
     await _client.from(_table).update({'name': name}).eq('id', user.id);
+  }
+
+  /// 회원탈퇴 — `deleted_at` 을 찍는 소프트 삭제(profile-settings.md 3).
+  ///
+  /// 행을 지우지 않는다. 30일 안에 같은 계정으로 다시 로그인하면
+  /// [ensureUserRow] 가 되살린다. 30일이 지난 행을 실제로 지우는 것은
+  /// pg_cron 배치의 몫이고 아직 없다 — 그래서 지금은 30일이 지나도
+  /// 복구된다(2026-09-26 결정, profile-settings.md 4 참조).
+  Future<void> markDeleted() async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw StateError('로그인 상태가 아닙니다.');
+    await _client.from(_table).update(
+        {'deleted_at': DateTime.now().toUtc().toIso8601String()}).eq(
+        'id', user.id);
   }
 
   AppUser _fromRow(Map<String, dynamic> row) => AppUser(

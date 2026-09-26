@@ -83,19 +83,34 @@ class AuthService {
     unawaited(_sync.syncNow());
   }
 
-  /// 로그아웃 — 해당 기기의 세션만 삭제한다(session-policy.md, 다기기 유지).
-  ///
-  /// 구글 쪽을 try 로 감싸는 이유: 앱을 껐다 켜서 세션이 복원된 상태면
-  /// `_gsiInitialized` 가 false 라 `GoogleSignIn.instance.signOut()` 이
-  /// "초기화되지 않았다"로 던진다. 그대로 두면 **Supabase 세션 삭제까지
-  /// 막혀 로그아웃이 안 된다.** 구글 캐시 정리는 실패해도 되지만 세션
-  /// 삭제는 반드시 돼야 한다.
+  /// 로그아웃 — 해당 기기의 세션만 삭제한다(session-policy.md 4, 다기기 유지).
   Future<void> signOut() async {
+    await _clearGoogleCache();
+    await _client.auth.signOut();
+  }
+
+  /// 회원탈퇴 — `deleted_at` 소프트 삭제 후 **전체 기기** 세션 무효화.
+  ///
+  /// 로그아웃은 해당 기기만, 회원탈퇴는 전체다(session-policy.md 4).
+  /// 다른 기기에 세션이 남아 있으면 탈퇴한 계정으로 계속 앱을 쓸 수 있다.
+  ///
+  /// 순서가 중요하다 — 세션을 먼저 지우면 `deleted_at` 을 쓸 권한
+  /// (RLS `auth.uid() = id`)이 사라져 탈퇴가 서버에 남지 않는다.
+  Future<void> deleteAccount() async {
+    await _users.markDeleted();
+    await _clearGoogleCache();
+    await _client.auth.signOut(scope: SignOutScope.global);
+  }
+
+  /// 구글 쪽 캐시 정리. **실패해도 넘어간다** — 앱을 껐다 켜서 세션이
+  /// 복원된 상태면 `_gsiInitialized` 가 false 라 `signOut()` 이 "초기화되지
+  /// 않았다"로 던지고, 그대로 두면 **Supabase 세션 삭제까지 막힌다.**
+  /// 로그아웃·탈퇴를 누르는 경로가 대개 이 상황이다.
+  Future<void> _clearGoogleCache() async {
     try {
       await _ensureGoogleInitialized();
       await GoogleSignIn.instance.signOut();
     } catch (_) {}
-    await _client.auth.signOut();
   }
 }
 
