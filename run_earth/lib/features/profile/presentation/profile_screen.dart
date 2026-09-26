@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/app_badge.dart';
 import '../../../core/theme/app_colors.dart';
@@ -290,8 +291,8 @@ class _SettingsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        _group(const [
-          (label: '계정 정보', onTap: null),
+        _group([
+          (label: '계정 정보', onTap: () => context.push('/profile/account')),
           (label: '닉네임 변경', onTap: null),
           // 기기 연동은 웨어러블 동기화(MVP 이후)와 함께 붙인다.
           (label: '기기 연동', onTap: null),

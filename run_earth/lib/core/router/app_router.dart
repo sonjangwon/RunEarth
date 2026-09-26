@@ -9,6 +9,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/content/presentation/content_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/profile/presentation/account_info_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/records/presentation/records_screen.dart';
 import '../../features/records/presentation/run_detail_screen.dart';
@@ -76,6 +77,15 @@ final GoRouter appRouter = GoRouter(
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
+            routes: [
+              // 설정 하위 화면. 기록 상세와 같이 shell 안쪽 자식이라
+              // 하단 탭바가 유지되고 <- 로 프로필에 돌아온다
+              // (profile-settings.md 3).
+              GoRoute(
+                path: 'account',
+                builder: (context, state) => const AccountInfoScreen(),
+              ),
+            ],
           ),
         ]),
       ],
