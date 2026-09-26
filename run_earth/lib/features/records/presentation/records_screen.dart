@@ -23,7 +23,6 @@ class RecordsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final runsAsync = ref.watch(runsStreamProvider);
     final filter = ref.watch(recordsFilterProvider);
-    final showIncomplete = ref.watch(showIncompleteRunsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -39,12 +38,13 @@ class RecordsScreen extends ConsumerWidget {
             final typed = filter == null
                 ? allRuns
                 : allRuns.where((r) => r.type == filter).toList();
-            // 0km 기록 정책(2026-09-23): 미완료 러닝은 기본으로 접어둔다.
-            // 요약 통계는 토글과 무관하게 **항상 완료 기록만** 센다 —
-            // 펼쳐 봤다고 총 횟수가 늘면 어느 쪽이 진짜인지 알 수 없다.
-            final complete = typed.where((r) => !r.isIncomplete).toList();
-            final hiddenCount = typed.length - complete.length;
-            final runs = showIncomplete ? typed : complete;
+            // 0km 기록 정책(2026-09-26 개정): 미완료 러닝은 **목록에 아예
+            // 내보내지 않는다.** 2026-09-20~23 에는 접어두고 "N건 보기"
+            // 토글로 펼칠 수 있었는데, 사용자 결정으로 토글을 없앴다.
+            //
+            // DB 에서 지우는 것은 아니다 — `records.md` 4 의 영구 보존은
+            // 그대로다. 화면에 내보내지 않을 뿐이다.
+            final runs = typed.where((r) => !r.isIncomplete).toList();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -52,9 +52,8 @@ class RecordsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: Text('내 기록', style: AppTextStyles.display(fontSize: 24)),
                 ),
-                _SummaryStats(complete),
+                _SummaryStats(runs),
                 const _FilterBar(),
-                if (hiddenCount > 0) _IncompleteToggle(hiddenCount),
                 Expanded(
                   child: runs.isEmpty
                       ? const _EmptyState()
@@ -271,43 +270,6 @@ class _FilterBar extends ConsumerWidget {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// 접어둔 미완료 러닝을 펼치는 토글. 숨긴 게 하나도 없으면 아예 뜨지 않는다.
-///
-/// 기록을 **지우는 게 아니라 접어두는** 것이므로 진입로가 반드시 있어야 한다
-/// (`records.md` 4 영구 보존). 0km 기록 정책(2026-09-20).
-class _IncompleteToggle extends ConsumerWidget {
-  const _IncompleteToggle(this.hiddenCount);
-  final int hiddenCount;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final show = ref.watch(showIncompleteRunsProvider);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () =>
-            ref.read(showIncompleteRunsProvider.notifier).state = !show,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-                show
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                size: 14,
-                color: AppColors.mutedForeground),
-            const SizedBox(width: 6),
-            Text(show ? '미완료 러닝 숨기기' : '미완료 러닝 $hiddenCount건 보기',
-                style: AppTextStyles.sans(
-                    fontSize: 11, color: AppColors.mutedForeground)),
-          ],
-        ),
       ),
     );
   }

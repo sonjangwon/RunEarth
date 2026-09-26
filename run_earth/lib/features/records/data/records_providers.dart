@@ -29,9 +29,3 @@ final runsLoadingProvider = Provider<bool>((ref) {
 /// 기록 탭 타입 필터 (null = 전체). 정본: records.md / 기능정의서 4-3-B.
 final recordsFilterProvider = StateProvider<RecordType?>((ref) => null);
 
-/// 미완료 러닝(거리 0)을 목록에 함께 보일지. 기본은 숨김.
-///
-/// 0km 기록 정책(2026-09-20) — 기록을 **지우는 게 아니라 접어두는** 것이므로
-/// 사용자가 언제든 펼쳐 볼 수 있어야 한다. `records.md` 4 의 영구 보존 원칙이
-/// 사용자 눈에도 지켜진 것으로 보이려면 이 토글이 필요하다.
-final showIncompleteRunsProvider = StateProvider<bool>((ref) => false);
