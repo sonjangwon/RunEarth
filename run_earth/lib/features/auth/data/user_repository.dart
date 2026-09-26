@@ -64,6 +64,17 @@ class UserRepository {
     return sessionUser(user);
   }
 
+  /// 닉네임 변경. 서버 `users.name` 만 고친다.
+  ///
+  /// 로컬 미러가 없다 — 이름은 러닝 기록과 달리 서버 한 곳에만 산다.
+  /// 그래서 오프라인에서는 저장할 방법이 없고, 화면에서 막는다
+  /// (offline-handling.md 2 케이스 D).
+  Future<void> updateName(String name) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw StateError('로그인 상태가 아닙니다.');
+    await _client.from(_table).update({'name': name}).eq('id', user.id);
+  }
+
   AppUser _fromRow(Map<String, dynamic> row) => AppUser(
         id: row['id'] as String,
         name: row['name'] as String? ?? '러너',

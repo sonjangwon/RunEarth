@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/enums.dart';
 import '../../../core/theme/app_colors.dart';
@@ -27,9 +28,12 @@ class AccountInfoScreen extends ConsumerWidget {
           SettingsTile(label: '가입일', value: formatJoinedAt(user?.createdAt)),
         ]),
         const SizedBox(height: 12),
-        // 닉네임 변경 화면은 다음 단위에서 붙인다.
-        const SettingsCard(children: [
-          SettingsTile(label: '닉네임 변경'),
+        SettingsCard(children: [
+          SettingsTile(
+            label: '닉네임 변경',
+            value: user?.name,
+            onTap: () => context.push('/profile/nickname'),
+          ),
         ]),
       ],
     );

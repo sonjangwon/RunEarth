@@ -293,7 +293,7 @@ class _SettingsSection extends ConsumerWidget {
       children: [
         _group([
           (label: '계정 정보', onTap: () => context.push('/profile/account')),
-          (label: '닉네임 변경', onTap: null),
+          (label: '닉네임 변경', onTap: () => context.push('/profile/nickname')),
           // 기기 연동은 웨어러블 동기화(MVP 이후)와 함께 붙인다.
           (label: '기기 연동', onTap: null),
           (label: '알림 및 위치 권한', onTap: null),
