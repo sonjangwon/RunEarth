@@ -151,6 +151,10 @@ class RunTracker extends Notifier<RunSessionState> {
   /// 생겼다. 5.14km 로 찍힌 기록에서 그런 구간의 거리 합이 1,785m(35%)였다.
   static const _maxSpeedMps = 6.0;
 
+  /// 🔧 진단 로그를 몇 번 찍었나(2026-09-26, `_onPosition` 참조).
+  /// 확인이 끝나면 로그와 함께 지운다.
+  int _rawLogCount = 0;
+
   /// 이 시간을 넘겨 좌표가 끊겼으면 속도 검사를 건너뛴다.
   ///
   /// 신호가 오래 끊겼다 돌아오면 좌표가 실제로 멀리 떨어져 있는 게 정상인데,
@@ -308,11 +312,45 @@ class RunTracker extends Notifier<RunSessionState> {
       // 벽시계(t)로 내면 쉰 시간이 그 구간에 통째로 얹힌다.
       e: state.elapsed.inMilliseconds,
       // 진단용으로 쌓아만 둔다. 지금은 아무것도 거르지 않는다(geo.dart 주석).
-      // `has*` 가 false 면 값이 0.0 플레이스홀더로 오므로 **null 로 남긴다** —
-      // 0 을 그대로 적으면 '오차 0m = 완벽한 좌표'로 읽힌다.
-      a: pos.hasAccuracy ? pos.accuracy.round() : null,
-      s: pos.hasSpeed ? (pos.speed * 100).round() : null,
+      //
+      // 🔴 `pos.hasAccuracy` / `pos.hasSpeed` 를 **쓰지 않는다.**
+      // `geolocator_android` 5.0.3 의 `AndroidPosition.fromMap` 이
+      // `Position.fromMap` 으로 플래그를 올바르게 계산해놓고, 새 객체를
+      // 만들면서 값만 복사하고 플래그를 안 넘긴다. 생성자 기본값이 false 라
+      // **안드로이드에서는 두 플래그가 영원히 false** 다.
+      // (2026-09-26 실기기 확인: 좌표 125개 전부 null. 걷는 속도로 기록한
+      //  33개도 전부 null 이라 속도 필터와는 무관했다.)
+      //
+      // 그래서 값 자체로 판단한다. 근거는 `LocationMapper.toHashMap`(Java)이
+      // `location.hasAccuracy()` 일 때만 키를 넣고, 키가 없으면 Dart 쪽
+      // `_toDouble` 이 **0.0 을 채운다**는 것이다.
+      //
+      // - 정확도: `0` 은 물리적으로 말이 안 된다('오차 0m = 완벽한 좌표').
+      //   `> 0` 이면 진짜 측정값이다.
+      // - 속도: **`0` 은 정상값**이다(서 있으면 0). 값으로 거를 수 없어
+      //   `speedAccuracy` 를 본다 — 도플러 신뢰도를 줬다는 건 속도도 쟀다는
+      //   뜻이라, 그때는 `speed` 가 0 이어도 진짜 0 이다.
+      a: pos.accuracy > 0 ? pos.accuracy.round() : null,
+      s: pos.speedAccuracy > 0 ? (pos.speed * 100).round() : null,
     );
+
+    // 🔧 진단 로그(2026-09-26) — 위 판정이 맞는지 확인하는 동안만 둔다.
+    //
+    // 고친 뒤에도 `a` 가 null 이면 **"값이 안 온다"** 와 **"판정이 틀렸다"** 를
+    // 구분해야 하는데, 원시값을 안 찍으면 그걸 알 방법이 없다. 그래서 판정
+    // 결과가 아니라 **플러그인이 준 날것**을 찍는다.
+    //
+    // 앞 5개만 찍는다 — 매 좌표마다 찍으면 logcat 이 밀려 필터 로그가
+    // 사라진다. 한 세션에서 5개면 값이 오는지 아닌지는 충분히 판가름난다.
+    // **확인이 끝나면 지울 것**(정확도 임계값을 정할 때 함께).
+    if (_rawLogCount < 5) {
+      _rawLogCount++;
+      debugPrint('[gps] 원시 — accuracy=${pos.accuracy} speed=${pos.speed} '
+          'speedAccuracy=${pos.speedAccuracy} '
+          '(has* 는 안드로이드에서 항상 false: '
+          '${pos.hasAccuracy}/${pos.hasSpeed}) '
+          '→ 저장 a=${point.a} s=${point.s}');
+    }
 
     // 지도와 'GPS 대기' 배지가 보는 현재 위치는 **항상** 갱신한다.
     // 아래 누적 조건에 걸려 걸러지더라도 화면은 살아 있어야 한다.
