@@ -11,6 +11,7 @@ import '../../features/content/presentation/content_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/profile/presentation/account_info_screen.dart';
 import '../../features/profile/presentation/nickname_edit_screen.dart';
+import '../../features/profile/presentation/permissions_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/records/presentation/records_screen.dart';
 import '../../features/records/presentation/run_detail_screen.dart';
@@ -89,6 +90,10 @@ final GoRouter appRouter = GoRouter(
               GoRoute(
                 path: 'nickname',
                 builder: (context, state) => const NicknameEditScreen(),
+              ),
+              GoRoute(
+                path: 'permissions',
+                builder: (context, state) => const PermissionsScreen(),
               ),
             ],
           ),
