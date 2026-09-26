@@ -280,18 +280,33 @@ class _BadgeTile extends StatelessWidget {
   }
 }
 
-class _SettingsSection extends StatelessWidget {
+/// 설정 메뉴 한 줄. [onTap] 이 null 이면 아직 배선되지 않은 항목이다.
+typedef _SettingsItem = ({String label, VoidCallback? onTap});
+
+class _SettingsSection extends ConsumerWidget {
   const _SettingsSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        _group(const ['계정 정보', '닉네임 변경', '기기 연동', '알림 및 위치 권한']),
+        _group(const [
+          (label: '계정 정보', onTap: null),
+          (label: '닉네임 변경', onTap: null),
+          // 기기 연동은 웨어러블 동기화(MVP 이후)와 함께 붙인다.
+          (label: '기기 연동', onTap: null),
+          (label: '알림 및 위치 권한', onTap: null),
+        ]),
         const SizedBox(height: 12),
-        _group(const ['이용 약관 및 방침', '자주 묻는 질문']),
+        // 콘텐츠 자체가 범위 밖이라 라벨만 둔다(profile-settings.md 3).
+        _group(const [
+          (label: '이용 약관 및 방침', onTap: null),
+          (label: '자주 묻는 질문', onTap: null),
+        ]),
         const SizedBox(height: 12),
-        _group(const ['로그아웃']),
+        _group([
+          (label: '로그아웃', onTap: () => _confirmSignOut(context, ref)),
+        ]),
         const SizedBox(height: 20),
         Text('회원탈퇴',
             style: AppTextStyles.sans(
@@ -304,7 +319,7 @@ class _SettingsSection extends StatelessWidget {
     );
   }
 
-  Widget _group(List<String> items) => Container(
+  Widget _group(List<_SettingsItem> items) => Container(
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
@@ -322,20 +337,67 @@ class _SettingsSection extends StatelessWidget {
       );
 }
 
+/// 로그아웃 확인 → 세션 삭제(profile-settings.md 3).
+///
+/// 로그인 화면으로 보내는 코드는 여기에 없다 — 라우터 세션 가드가
+/// `onAuthStateChange` 를 듣고 있어서 세션이 사라지면 알아서 `/login` 으로
+/// 간다(app_router.dart). 여기서 또 `go()` 하면 둘이 경쟁한다.
+Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text('로그아웃 하시겠어요?',
+          style: AppTextStyles.sans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.foreground)),
+      content: Text(
+        '이 기기에서만 로그아웃됩니다.\n'
+        '기록은 그대로 남아 있어요.',
+        style:
+            AppTextStyles.sans(fontSize: 13, color: AppColors.mutedForeground),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('취소',
+              style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('로그아웃',
+              style: AppTextStyles.sans(color: AppColors.accent)),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return;
+
+  try {
+    await ref.read(authServiceProvider).signOut();
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('로그아웃에 실패했어요: $e')));
+  }
+}
+
 class _SettingsRow extends StatelessWidget {
-  const _SettingsRow(this.label);
-  final String label;
+  const _SettingsRow(this.item);
+  final _SettingsItem item;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {}, // 프로토타입: 탭 인터랙션만
+      onTap: item.onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: AppTextStyles.sans(fontSize: 14)),
+            Text(item.label, style: AppTextStyles.sans(fontSize: 14)),
             const Icon(Icons.chevron_right,
                 size: 18, color: AppColors.mutedForeground),
           ],

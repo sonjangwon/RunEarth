@@ -83,8 +83,18 @@ class AuthService {
     unawaited(_sync.syncNow());
   }
 
+  /// 로그아웃 — 해당 기기의 세션만 삭제한다(session-policy.md, 다기기 유지).
+  ///
+  /// 구글 쪽을 try 로 감싸는 이유: 앱을 껐다 켜서 세션이 복원된 상태면
+  /// `_gsiInitialized` 가 false 라 `GoogleSignIn.instance.signOut()` 이
+  /// "초기화되지 않았다"로 던진다. 그대로 두면 **Supabase 세션 삭제까지
+  /// 막혀 로그아웃이 안 된다.** 구글 캐시 정리는 실패해도 되지만 세션
+  /// 삭제는 반드시 돼야 한다.
   Future<void> signOut() async {
-    await GoogleSignIn.instance.signOut();
+    try {
+      await _ensureGoogleInitialized();
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {}
     await _client.auth.signOut();
   }
 }
