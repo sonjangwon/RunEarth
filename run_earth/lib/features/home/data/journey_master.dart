@@ -45,9 +45,14 @@ class JourneyCity {
 /// 무관한 사진을 자주 섞어 낸다(`incheon` -> 미국 베닝턴 기념비,
 /// `gwangan bridge busan` -> 금문교).
 ///
-/// 주석의 `[확실]`/`[추정]` 은 사진 설명(alt)으로 판단한 것이다. **[추정]은
-/// 실기기에서 눈으로 봐야 한다** — 도시 분위기는 맞지만 그 도시라고 단정할
-/// 근거가 사진 설명에 없었다.
+/// 주석의 등급:
+/// - `[확실]` — 사진 설명(alt)에 도시·랜드마크 이름이 그대로 들어 있다
+/// - `[확인]` — 설명만으로는 애매해서 **이미지를 직접 열어 눈으로 확인**했다
+/// - `[추정]` — 아직 눈으로 못 본 것. 실기기에서 봐야 한다
+///
+/// 눈으로 본 것 중 둘은 갈아치웠다 — 프리토리아는 하늘만 크고 너무 밝아서,
+/// 인천은 어느 도시인지 알 수 없는 야경이라서. 어두운 카드 위에 흰 글씨가
+/// 얹히므로 **하늘이 대부분인 사진은 배경으로 못 쓴다.**
 const journeyRoute = <JourneyCity>[
   // 국내 시작 후보 (§2)
   JourneyCity('서울', 0,
@@ -55,16 +60,16 @@ const journeyRoute = <JourneyCity>[
       imageKey: 'photo-1570191913384-7b4ff11716e7'), // [확실] 남산타워
   JourneyCity('인천', 27.0,
       isStartCandidate: true,
-      imageKey: 'photo-1742644349414-11b2dd184284'), // [추정] 야간 조명 다리
+      imageKey: 'photo-1696452774727-997402ebeb08'), // [확인] 송도 센트럴파크
   JourneyCity('전주', 194.3,
       isStartCandidate: true,
-      imageKey: 'photo-1653230675261-fe00bde32c8e'), // [추정] 한옥 지붕 조감
+      imageKey: 'photo-1653230675261-fe00bde32c8e'), // [확인] 한옥마을 지붕
   JourneyCity('부산', 325.1,
       isStartCandidate: true,
       imageKey: 'photo-1672671187899-a10f547341f1'), // [확실] 감천문화마을
   // 해외 구간 — G20 수도 (§3)
   JourneyCity('베이징', 952,
-      imageKey: 'photo-1590301729964-23833732ee04'), // [추정] 붉은 사원
+      imageKey: 'photo-1590301729964-23833732ee04'), // [확인] 자금성
   JourneyCity('도쿄', 1149,
       imageKey: 'photo-1513407030348-c983a97b98d8'), // [확실] 도쿄타워 황혼
   JourneyCity('뉴델리', 4687,
@@ -80,7 +85,7 @@ const journeyRoute = <JourneyCity>[
   JourneyCity('베를린', 8127,
       imageKey: 'photo-1587330979470-3595ac045ab0'), // [확실] 브란덴부르크 문
   JourneyCity('캔버라', 8416,
-      imageKey: 'photo-1672264597620-d792bb6de88d'), // [추정] 국회의사당
+      imageKey: 'photo-1672264597620-d792bb6de88d'), // [확인] 호주 국회의사당
   JourneyCity('런던', 8857,
       imageKey: 'photo-1519773483179-fa089c182a4a'), // [확실] 밤의 빅벤
   JourneyCity('로마', 8966,
@@ -88,15 +93,15 @@ const journeyRoute = <JourneyCity>[
   JourneyCity('파리', 8966,
       imageKey: 'photo-1626985249964-4fa612df0274'), // [확실] 야간 에펠탑
   JourneyCity('오타와', 10512,
-      imageKey: 'photo-1635394075897-38bd158f0b8e'), // [추정] 언덕 위 의사당
+      imageKey: 'photo-1635394075897-38bd158f0b8e'), // [확인] Parliament Hill(공사 크레인 보임)
   JourneyCity('워싱턴 D.C.', 11164,
       imageKey: 'photo-1594581979864-36977b15d0dc'), // [확실] 미 국회의사당
   JourneyCity('멕시코시티', 12052,
       imageKey: 'photo-1776291691285-74ee376be883'), // [확실] 독립 천사 기념비
   JourneyCity('프리토리아', 12446,
-      imageKey: 'photo-1646502408270-7eb6e19681dd'), // [추정] 언덕에서 본 시가
+      imageKey: 'photo-1614075565833-7d31bb969f71'), // [확인] 구시가·자카란다
   JourneyCity('브라질리아', 17546,
-      imageKey: 'photo-1686150360446-ee7eae8026cf'), // [추정] 브라질리아 대성당
+      imageKey: 'photo-1686150360446-ee7eae8026cf'), // [확인] 대성당(하늘 비중 큼)
   JourneyCity('부에노스아이레스', 19432,
       imageKey: 'photo-1672588371953-2accc9eb0d01'), // [확실] 오벨리스코
 ];
