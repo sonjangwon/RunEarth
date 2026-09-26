@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
 import '../../records/data/records_providers.dart';
 import '../data/home_providers.dart';
+import '../data/journey_master.dart';
 
 // 여정 히어로 높이 — 화면이 남으면 히어로가 먹는다.
 //
@@ -121,7 +123,10 @@ class _Greeting extends ConsumerWidget {
   }
 }
 
-class _JourneyCard extends StatelessWidget {
+/// 도시 한 칸을 넘기는 데 필요한 가로 드래그 거리(px).
+const double _kSlideThreshold = 56;
+
+class _JourneyCard extends StatefulWidget {
   const _JourneyCard(this.journey, {required this.heroHeight});
   final JourneyProgress journey;
 
@@ -129,7 +134,48 @@ class _JourneyCard extends StatelessWidget {
   final double heroHeight;
 
   @override
+  State<_JourneyCard> createState() => _JourneyCardState();
+}
+
+class _JourneyCardState extends State<_JourneyCard> {
+  /// 🔧 **테스트용 미리보기 오프셋.** 현재 목적지에서 몇 칸 떨어진 도시를
+  /// 보고 있는가. 0 이면 실제 목적지다.
+  ///
+  /// 22개 도시 이미지를 다 보려면 실제로 19,432km 를 달려야 해서, 배경이
+  /// 제대로 들어갔는지 확인할 방법이 없었다. 좌우로 넘겨 확인한다.
+  ///
+  /// **디버그 빌드에서만 동작한다**(`kDebugMode`). 실서비스에서 여정 카드를
+  /// 넘길 수 있으면 아직 도달하지 않은 도시를 미리 보게 돼 "달린 만큼
+  /// 나아간다"는 앱의 전제가 깨진다.
+  int _previewOffset = 0;
+
+  /// 이번 드래그에서 누적으로 끈 가로 거리(px). [_kSlideThreshold] 를 넘으면
+  /// 한 칸 넘기고 0 으로 되돌린다.
+  double _dragDx = 0;
+
+  JourneyProgress get journey => widget.journey;
+
+  /// 미리보기 중인 도시(테스트용). 오프셋이 0 이면 실제 목적지와 같다.
+  JourneyCity get _shownCity {
+    final i = (journey.toCityIndex + _previewOffset)
+        .clamp(0, journeyRoute.length - 1);
+    return journeyRoute[i];
+  }
+
+  bool get _previewing => _shownCity.name != journey.toCity.name;
+
+  void _slide(int delta) {
+    if (!kDebugMode) return;
+    setState(() {
+      final next = journey.toCityIndex + _previewOffset + delta;
+      if (next < 0 || next >= journeyRoute.length) return;
+      _previewOffset += delta;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final heroHeight = widget.heroHeight;
     final segmentFrom = journey.fromCity.name;
     final segmentTo = journey.toCity.name;
     final fromKm = journey.fromCity.cumulativeKm.toStringAsFixed(0);
@@ -150,8 +196,31 @@ class _JourneyCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 히어로 (배경 이미지는 journey.md [미확정] → 그라디언트 플레이스홀더)
-          Container(
+          // 히어로. 배경은 다음 목적지 도시 이미지(journey.md §4).
+          //
+          // 🔧 디버그 빌드에서만 좌우로 넘겨 다른 도시 이미지를 미리 볼 수
+          // 있다 — 22개를 다 보려면 19,432km 를 달려야 하기 때문이다.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // 속도가 아니라 **끈 거리**로 센다. 속도 기준은 `adb input swipe`
+            // 로 넣은 제스처를 놓쳤고(2026-09-26 실기기), 천천히 미는 손가락도
+            // 놓친다. 거리 기준이면 끌고 있는 동안 여러 칸을 연속으로
+            // 넘길 수 있어 22개를 훑기에도 낫다.
+            onHorizontalDragStart: kDebugMode ? (_) => _dragDx = 0 : null,
+            onHorizontalDragUpdate: kDebugMode
+                ? (d) {
+                    _dragDx += d.delta.dx;
+                    if (_dragDx <= -_kSlideThreshold) {
+                      _dragDx = 0;
+                      _slide(1); // 왼쪽으로 밀기 → 다음 도시
+                    } else if (_dragDx >= _kSlideThreshold) {
+                      _dragDx = 0;
+                      _slide(-1); // 오른쪽으로 밀기 → 이전 도시
+                    }
+                  }
+                : null,
+            onHorizontalDragEnd: kDebugMode ? (_) => _dragDx = 0 : null,
+            child: Container(
             height: heroHeight,
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -169,10 +238,12 @@ class _JourneyCard extends StatelessWidget {
                 // 실패해도 아무것도 그리지 않는다. 뒤에 카드의 기본
                 // 그라디언트가 이미 깔려 있어 조용히 단색으로 남는다
                 // (§7 "배경 이미지는 실패해도 카드 자체는 정상 작동").
-                if (journey.toCity.imageKey.isNotEmpty)
+                if (_shownCity.imageKey.isNotEmpty)
                   Positioned.fill(
                     child: Image.network(
-                      unsplashUrl(journey.toCity.imageKey, w: 800, h: 460),
+                      unsplashUrl(_shownCity.imageKey, w: 800, h: 460),
+                      // 도시마다 다른 그림이라 key 를 줘야 넘길 때 교체된다.
+                      key: ValueKey(_shownCity.imageKey),
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
@@ -197,10 +268,19 @@ class _JourneyCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('현재 여정',
+                      Text(_previewing ? '미리보기 (테스트)' : '현재 여정',
                           style: AppTextStyles.mono(
-                              fontSize: 8, color: AppColors.primary)),
-                      Text('$segmentFrom → $segmentTo',
+                              fontSize: 8,
+                              color: _previewing
+                                  ? AppColors.accent
+                                  : AppColors.primary)),
+                      // 미리보기 중에는 보고 있는 도시 이름을 그대로 쓴다.
+                      // 실제 구간(`인천 → 전주`)을 그대로 두면 그림과 글이
+                      // 어긋나 어느 쪽이 맞는지 알 수 없다.
+                      Text(
+                          _previewing
+                              ? _shownCity.name
+                              : '$segmentFrom → $segmentTo',
                           style: AppTextStyles.display(fontSize: 18)),
                     ],
                   ),
@@ -216,13 +296,43 @@ class _JourneyCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white.withAlpha(0x1A)),
                     ),
-                    child: Text('$remainingKm km 남음',
+                    child: Text(
+                        _previewing
+                            ? '${journeyRoute.indexOf(_shownCity) + 1} / ${journeyRoute.length}  ← →'
+                            : '$remainingKm km 남음',
                         style: AppTextStyles.mono(
-                            fontSize: 10, fontWeight: FontWeight.w500)),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: _previewing
+                                ? AppColors.accent
+                                : AppColors.foreground)),
                   ),
                 ),
+                // 미리보기를 끝내고 실제 목적지로 돌아가는 길.
+                if (_previewing)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _previewOffset = 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(0x80),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: AppColors.accent),
+                        ),
+                        child: Text('실제로 돌아가기',
+                            style: AppTextStyles.mono(
+                                fontSize: 10, color: AppColors.accent)),
+                      ),
+                    ),
+                  ),
               ],
             ),
+          ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),

@@ -56,6 +56,7 @@ class JourneyProgress {
     required this.absolutePositionKm,
     required this.fromCity,
     required this.toCity,
+    required this.toCityIndex,
     required this.milestones,
   });
 
@@ -63,6 +64,13 @@ class JourneyProgress {
   final double absolutePositionKm;
   final JourneyCity fromCity;
   final JourneyCity toCity;
+
+  /// [toCity] 의 `journeyRoute` 상 인덱스.
+  ///
+  /// 도시 배경 미리보기(테스트용 스와이프)가 "현재 목적지에서 몇 칸 떨어진
+  /// 도시인가"를 세는 기준점으로 쓴다. 화면에서 `indexOf` 로 되찾으면 같은
+  /// 계산을 두 곳에 두는 셈이라 여기서 함께 내보낸다.
+  final int toCityIndex;
 
   /// 마일스톤 점 표시용 윈도우(최대 5개).
   final List<JourneyMilestone> milestones;
@@ -132,6 +140,7 @@ final journeyProgressProvider = Provider<JourneyProgress>((ref) {
     absolutePositionKm: absolute,
     fromCity: journeyRoute[fromIndex],
     toCity: journeyRoute[targetIndex],
+    toCityIndex: targetIndex,
     milestones: milestones,
   );
 });
