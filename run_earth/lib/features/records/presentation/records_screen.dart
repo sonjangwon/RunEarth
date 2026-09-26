@@ -7,6 +7,8 @@ import '../../../core/models/geo.dart';
 import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/inline_error.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../run/presentation/route_painter.dart';
 import '../../../services/sync/run_sync_service.dart';
 import '../data/records_providers.dart';
@@ -27,11 +29,12 @@ class RecordsScreen extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: runsAsync.when(
-          loading: () => const Center(
-              child: CircularProgressIndicator(color: AppColors.primary)),
-          error: (_, _) => Center(
-              child: Text('불러오지 못했어요',
-                  style: AppTextStyles.sans(color: AppColors.mutedForeground))),
+          // 스피너가 아니라 목록 모양 뼈대를 세운다(global-states.md 3).
+          loading: () => const _RecordsSkeleton(),
+          error: (_, _) => InlineError(
+            // 다시 구독하면 drift 가 처음부터 다시 흘려준다.
+            onRetry: () => ref.invalidate(runsStreamProvider),
+          ),
           data: (allRuns) {
             final typed = filter == null
                 ? allRuns
@@ -62,6 +65,49 @@ class RecordsScreen extends ConsumerWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// 기록 탭 로딩 뼈대. 제목 · 요약 카드 · 필터바 · 카드 3장으로, **실제 화면과
+/// 같은 순서와 치수**로 세운다. 데이터가 도착할 때 화면이 튀지 않으려면
+/// 뼈대가 실물과 같은 자리를 차지해야 한다.
+class _RecordsSkeleton extends StatelessWidget {
+  const _RecordsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text('내 기록', style: AppTextStyles.display(fontSize: 24)),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: SkeletonCard(height: 86),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: SkeletonBox(width: 220, height: 32, radius: 16),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            physics: const NeverScrollableScrollPhysics(),
+            children: const [
+              SkeletonBox(width: 80, height: 14),
+              SizedBox(height: 10),
+              SkeletonCard(height: 96),
+              SizedBox(height: 8),
+              SkeletonCard(height: 96),
+              SizedBox(height: 8),
+              SkeletonCard(height: 96),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

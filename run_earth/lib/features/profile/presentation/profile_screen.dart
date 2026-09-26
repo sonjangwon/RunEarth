@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/app_badge.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
 import '../../home/data/home_providers.dart';
+import '../../records/data/records_providers.dart';
 import '../data/badge_providers.dart';
 import '../data/profile_sample_data.dart';
 
@@ -140,6 +142,19 @@ class _StatsRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 홈과 같은 집계를 구독한다 — 두 화면의 숫자가 어긋나지 않게.
     final stats = ref.watch(homeStatsProvider);
+    // 로딩/빈 구분도 홈과 같은 근거를 쓴다. 한쪽만 뼈대를 세우면 같은 숫자를
+    // 보여주는 두 화면이 다르게 보인다.
+    if (ref.watch(runsLoadingProvider)) {
+      return const Row(
+        children: [
+          Expanded(child: SkeletonCard(height: 74)),
+          SizedBox(width: 8),
+          Expanded(child: SkeletonCard(height: 74)),
+          SizedBox(width: 8),
+          Expanded(child: SkeletonCard(height: 74)),
+        ],
+      );
+    }
     return Row(
       children: [
         Expanded(child: _stat('총 거리', stats.totalKm.toStringAsFixed(1), 'km')),

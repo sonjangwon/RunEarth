@@ -53,7 +53,9 @@ lib/
  │   ├─ theme/     색상·폰트 토큰, ThemeData
  │   ├─ router/    go_router (5탭 shell)
  │   ├─ models/    Dart 데이터 모델 (Run/User/MasterCity …) ← 코드상 정본
- │   └─ db/        drift 로컬 DB (스키마·DAO)
+ │   ├─ db/        drift 로컬 DB (스키마·DAO)
+ │   └─ widgets/   화면에 안 매인 전역 공통 위젯 (스켈레톤·인라인 에러)
+ │                 정본: docs/features/global-states.md
  ├─ features/      home / run / records / content / profile / auth
  └─ services/      supabase 클라이언트, 동기화 큐
 ```

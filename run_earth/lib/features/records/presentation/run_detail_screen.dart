@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/inline_error.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../services/sync/run_sync_service.dart';
 import '../../run/presentation/cover_photo_sheet.dart';
 import '../../run/presentation/run_detail_view.dart';
@@ -45,16 +46,22 @@ class RunDetailScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: runsAsync.when(
-          loading: () => const Center(
-              child: CircularProgressIndicator(color: AppColors.primary)),
+          loading: () => _Missing(onClose: close, child: const _DetailSkeleton()),
           error: (_, _) => _Missing(
-              message: '불러오지 못했어요', onClose: close),
+            onClose: close,
+            // "찾을 수 없다"와 달리 에러는 다시 시도할 여지가 있다.
+            child: InlineError(onRetry: () => ref.invalidate(runsStreamProvider)),
+          ),
           data: (runs) {
             final run = _findById(runs, runId);
             // 기록은 삭제되지 않지만(records.md 4), 링크로 직접 들어오는 등
             // 없는 id 가 올 수 있다. 빈 화면 대신 돌아갈 길을 준다.
             if (run == null) {
-              return _Missing(message: '기록을 찾을 수 없어요', onClose: close);
+              // 재시도 버튼을 달지 않는다 — 다시 읽어도 없는 id 는 없다.
+              return _Missing(
+                onClose: close,
+                child: const InlineError(message: '기록을 찾을 수 없어요'),
+              );
             }
             return RunDetailView(
               dateLabel: '${run.year}.${run.date}',
@@ -102,11 +109,13 @@ class RunDetailScreen extends ConsumerWidget {
   }
 }
 
+/// 상세를 못 그리는 동안에도 **돌아갈 길(<-)은 항상 남긴다.** 로딩·에러·없는
+/// id 세 경우가 이 껍데기를 공유한다.
 class _Missing extends StatelessWidget {
-  const _Missing({required this.message, required this.onClose});
+  const _Missing({required this.onClose, required this.child});
 
-  final String message;
   final VoidCallback onClose;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -120,12 +129,26 @@ class _Missing extends StatelessWidget {
             tooltip: '기록 목록으로',
           ),
         ),
-        Expanded(
-          child: Center(
-            child: Text(message,
-                style: AppTextStyles.sans(color: AppColors.mutedForeground)),
-          ),
-        ),
+        Expanded(child: Center(child: child)),
+      ],
+    );
+  }
+}
+
+/// 상세 화면 로딩 뼈대 — 대표 이미지 · 수치 줄 · 구간 목록 순서를 따른다.
+class _DetailSkeleton extends StatelessWidget {
+  const _DetailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: const [
+        SkeletonCard(height: 200),
+        SizedBox(height: 16),
+        SkeletonCard(height: 88),
+        SizedBox(height: 12),
+        SkeletonCard(height: 120),
       ],
     );
   }

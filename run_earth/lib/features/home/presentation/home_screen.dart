@@ -6,8 +6,10 @@ import '../../../core/models/streak_day.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/util/images.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
+import '../../records/data/records_providers.dart';
 import '../data/home_providers.dart';
 
 // 여정 히어로 배경 (개발용 임시 Unsplash). journey.md 는 "다음 목적지 도시"별
@@ -54,6 +56,10 @@ class HomeScreen extends ConsumerWidget {
     final stats = ref.watch(homeStatsProvider);
     final journey = ref.watch(journeyProgressProvider);
     final streak = ref.watch(streakProvider);
+    // 세 값 모두 로컬 기록에서 계산되는데, 값이 없으면 0 으로 접힌다.
+    // 그래서 '아직 못 읽었다' 와 '기록이 없다' 가 화면에서 같아 보인다 —
+    // 뼈대를 세울지는 집계가 아니라 이 값으로 정한다(global-states.md 3).
+    final loading = ref.watch(runsLoadingProvider);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -65,13 +71,24 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 _Greeting(),
                 const SizedBox(height: 16),
-                _JourneyCard(journey,
-                    heroHeight: _heroHeightFor(constraints.maxHeight)),
-                const SizedBox(height: 12),
-                _StatsRow(stats),
-                const SizedBox(height: 12),
-                _StreakCard(streak),
+                if (loading) ...[
+                  SkeletonCard(
+                      height: _heroHeightFor(constraints.maxHeight) + 96),
+                  const SizedBox(height: 12),
+                  const SkeletonCard(height: 76),
+                  const SizedBox(height: 12),
+                  const SkeletonCard(height: 132),
+                ] else ...[
+                  _JourneyCard(journey,
+                      heroHeight: _heroHeightFor(constraints.maxHeight)),
+                  const SizedBox(height: 12),
+                  _StatsRow(stats),
+                  const SizedBox(height: 12),
+                  _StreakCard(streak),
+                ],
                 const SizedBox(height: 16),
+                // START 는 뼈대로 덮지 않는다 — 기록을 읽는 것과 무관하게
+                // 언제나 눌러야 한다(오프라인에서도 러닝은 된다).
                 const _StartCta(),
               ],
             ),
