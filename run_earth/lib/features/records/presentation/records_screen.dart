@@ -52,7 +52,7 @@ class RecordsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: Text('내 기록', style: AppTextStyles.display(fontSize: 24)),
                 ),
-                _SummaryStats(runs),
+                _SummaryStats(runs, accent: _filterColor(filter)),
                 const _FilterBar(),
                 Expanded(
                   child: runs.isEmpty
@@ -123,10 +123,19 @@ String _formatTotalTime(List<Run> runs) {
 }
 
 /// 전체 기간 요약 — Figma 정본(App.tsx 1076-1093).
-/// 카드로 감싸고 값은 네온그린, 우상단에 옅은 radial glow 를 깐다.
+/// 카드로 감싸고 우상단에 옅은 radial glow 를 깐다.
+///
+/// 🟢 **숫자와 글로우 색은 지금 보고 있는 필터를 따라간다**
+/// (2026-09-27 사용자 결정). 전체·일반은 네온그린, 테마는 파랑, 온라인은
+/// 노랑 — `_filterColor` 가 필터 칩·타입 뱃지와 **같은 색표**를 쓴다.
+/// 아래 목록의 뱃지와 위 숫자가 따로 놀면, 무슨 타입을 보고 있는지 화면
+/// 위아래가 다르게 말하는 셈이 된다.
 class _SummaryStats extends StatelessWidget {
-  const _SummaryStats(this.runs);
+  const _SummaryStats(this.runs, {required this.accent});
   final List<Run> runs;
+
+  /// 지금 필터의 색. 숫자와 글로우에 함께 쓴다.
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -154,8 +163,8 @@ class _SummaryStats extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppColors.primary.withAlpha(0x14),
-                      AppColors.primary.withAlpha(0x00),
+                      accent.withAlpha(0x14),
+                      accent.withAlpha(0x00),
                     ],
                   ),
                 ),
@@ -192,8 +201,7 @@ class _SummaryStats extends StatelessWidget {
           RichText(
             text: TextSpan(
               text: value,
-              style: AppTextStyles.display(
-                  fontSize: 20, color: AppColors.primary),
+              style: AppTextStyles.display(fontSize: 20, color: accent),
               children: [
                 if (unit.isNotEmpty)
                   TextSpan(
