@@ -5,8 +5,8 @@
 것이다 (스크린샷은 `.gitignore` 로 빠져 있어 경로 참조로는 받는 사람 쪽에서 깨진다).
 
     python scripts/build-report.py <입력.md> <출력.html>
-    python scripts/build-report.py docs/dev-notes/2026-09-27-team-report.md \
-                                   docs/dev-notes/2026-09-27-team-report.html
+    python scripts/build-report.py docs/reports/2026-09-27-team-report.md \
+                                   docs/reports/2026-09-27-team-report.html
 
 md 문법은 전부가 아니라 리포트에 쓰는 것만 다룬다 — 제목 · 문단 · 목록 · 표 ·
 인용 · 굵게/코드/취소선, 그리고 스크린샷 묶음:

@@ -485,6 +485,18 @@ grep -a "<SUPABASE_URL 호스트>" app-release.apk   # 없음 → 미주입 확�
 - 변환기를 `scripts/build-report.py` 로 저장했다. 안 두면 다음에 본문만 고쳐서
   다시 뽑을 수가 없다
 
+### 📁 `docs/reports/` 로 옮겼다
+
+리포트는 **`docs/dev-notes/` 가 아니라 `docs/reports/` 에 있다**(§8 에 적힌
+위치는 낡았다). dev-notes 와 성격이 다르다 — dev-notes 는 나·다음 세션이 읽는
+기록이고 **한 번 쓰면 안 고친다.** 리포트는 팀 전체가 읽고 **계속 다시 만드는
+산출물**이다. 날짜 접두사가 같아서 세션 노트처럼 보이던 게 문제였고, `.html` 은
+손으로 쓴 노트 사이에 낀 빌드 산출물이었다.
+
+**`.html` 도 커밋한다.** 스크린샷을 `.gitignore` 로 뺐기 때문에 `.md` 만 있으면
+저장소를 새로 받은 사람에게는 이미지가 전부 깨진다. `.md` 는 "다시 만들 원본",
+**`.html` 은 "그때 앱이 이랬다" 가 남아 있는 유일한 아카이브**다.
+
 **사용자가 지우라고 한 것** (다시 넣지 말 것):
 
 - 홈의 인사말 설명 (`RUNEARTH님` / `러너님` 비교)
@@ -521,7 +533,7 @@ grep -a "<SUPABASE_URL 호스트>" app-release.apk   # 없음 → 미주입 확�
 |---|---|
 | `CLAUDE.md` | 빌드 명령에 env 플래그 · 실기기 설치 절차 신설 (§14) |
 | `.gitignore` | `docs/assets/screenshots/` 제외 |
-| `docs/dev-notes/2026-09-27-team-report.md` · `.html` | 스크린샷 29장 기반 전면 재작성 (§16) |
+| `docs/reports/2026-09-27-team-report.md` · `.html` | 스크린샷 29장 기반 전면 재작성 (§16) |
 | `docs/feature-backlog.md` | 오프라인 ✅ · 로그아웃 검증 ✅ · 로그아웃 절 갱신 |
 | `scripts/build-report.py` | 신규 — md → 자체포함 HTML |
 | 이 노트 | §8·§10·§12 정정 + §14~§17 |
