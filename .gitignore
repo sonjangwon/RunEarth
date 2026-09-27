@@ -10,3 +10,6 @@ Thumbs.db
 *.iml
 
 # Flutter 빌드 산출물은 run_earth/.gitignore 에서 처리됨
+
+# 리포트용 스크린샷 (로컬 보관, 커밋 안 함)
+docs/assets/screenshots/
