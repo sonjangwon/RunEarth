@@ -61,11 +61,27 @@ lib/
 ```
 
 ## 자주 쓰는 명령 (`run_earth/`에서)
-- `flutter run` — 앱 실행 (기기/에뮬레이터)
-- `flutter analyze` — 정적 분석 (커밋 전 필수)
+
+> **앱을 실행·빌드하는 명령에는 반드시 `--dart-define-from-file=env.json` 을 붙인다.**
+> 빼면 `SupabaseConfig.isConfigured` 가 false 가 되어 `main.dart` 의 `Supabase.initialize()`
+> 가 건너뛰어지고, `app_router.dart` 의 세션 가드(`_guard`)까지 **통째로 꺼진다.**
+> 증상이 고약하다 — 앱은 정상 실행되고 local-first 라 기존 기록도 보여서 **로그인된 것처럼
+> 보이지만**, 로그아웃·동기화·계정 정보·사진 업로드가 전부 실패한다. 빌드 로그에도
+> 경고가 안 뜬다. (9/23 오프라인 검증 실패 · 9/27 릴리스 APK 로그아웃 실패 — 두 번 겪었다)
+
+- `flutter run --dart-define-from-file=env.json` — 앱 실행 (기기/에뮬레이터)
+- `flutter build apk --release --dart-define-from-file=env.json` — 릴리스 APK 빌드
+  (산출물 `build/app/outputs/flutter-apk/app-release.apk`, 클린 빌드 약 14분)
+- `flutter analyze` — 정적 분석 (커밋 전 필수). env 주입은 필요 없다
 - `flutter test` — 테스트
 - `dart run build_runner build` — freezed·drift 코드 생성 (충돌 시 `dart run build_runner clean` 후 재실행)
 - `flutter pub get` — 의존성 동기화
+
+### 실기기 설치 (안드로이드)
+- `adb install -r <apk>` — **데이터 보존**. `uninstall` 은 러닝 기록·로그인이 날아가니 쓰지 않는다
+  (보존 확인법: `adb shell dumpsys package com.runearth.run_earth | grep firstInstallTime` 가 그대로인지)
+- **설치 전에 APK 에 env 가 박혔는지 검증한다** — `grep -a "<SUPABASE_URL 호스트>" <apk>` 가
+  걸리지 않으면 위 함정에 빠진 것이다. 앱을 켜서는 알 수 없으니 파일에서 확인한다
 
 ## 디자인 토큰 (정본: `docs/Run Earth_기능정의서.md` 7장, 매번 문서 안 뒤지게 요약)
 | 토큰 | 값 | 용도 |
