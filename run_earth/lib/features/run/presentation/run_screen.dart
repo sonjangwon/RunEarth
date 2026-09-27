@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -13,8 +14,10 @@ import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/sync/run_sync_service.dart';
+import '../../home/data/home_providers.dart';
 import '../data/air_quality_provider.dart';
 import '../data/run_tracker.dart';
+import '../data/voice_guide.dart';
 import 'cover_photo_sheet.dart';
 import 'route_image_renderer.dart';
 import 'run_detail_view.dart';
@@ -99,6 +102,23 @@ class _RunScreenState extends ConsumerState<RunScreen> {
       if (!mounted) return;
       if (proceed) await tracker.requestIgnoreBatteryOptimization();
       if (!mounted) return;
+    }
+
+    // 절전 모드 — 위 '절전 제외'와 다른 문제다. 그건 백그라운드 작업 제한을
+    // 푸는 것이고, 이건 Android 9 이하에서 **OS 가 위치 자체를 정지**시키는
+    // 것이라 앱이 막을 수 없다(run-flow.md 7). 그래서 알리기만 한다.
+    //
+    // Android 10+ 에서는 조건이 성립하지 않아 이 분기를 아예 타지 않는다.
+    if (await tracker.isPowerSaveBlocking()) {
+      if (!mounted) return;
+      final openSettings = await _showPowerSaveWarning();
+      if (!mounted) return;
+      if (openSettings) {
+        await tracker.openBatterySaverSettings();
+        // 설정으로 보냈으면 START 는 하지 않는다. 끄고 돌아와서 다시 누르는
+        // 게 맞다 — 여기서 그대로 시작하면 끄러 간 의미가 없다.
+        return;
+      }
     }
 
     await tracker.start();
@@ -213,6 +233,48 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     );
   }
 
+  /// 기기 절전 모드가 켜져 있을 때의 안내. [true] 면 절전 설정 화면으로 보낸다.
+  ///
+  /// **막지 않고 알리기만 한다** — 알림 권한·절전 제외와 같은 원칙이다
+  /// (`run-flow.md` 7). 다만 이쪽은 앱이 손쓸 방법이 전혀 없어서, 문구에서
+  /// 그 점을 분명히 말한다. Strava 등도 같은 대응을 한다(2026-09-26 조사).
+  ///
+  /// 이 안내는 **Android 9 이하 + 절전 켜짐**에서만 뜬다. 조건은
+  /// `RunTracker.isPowerSaveBlocking` 이 판단한다.
+  Future<bool> _showPowerSaveWarning() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('절전 모드가 켜져 있어요',
+            style: AppTextStyles.sans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground)),
+        content: Text(
+          '이 기기는 절전 모드에서 화면을 끄면\n'
+          '위치 기록이 끊겨요. 앱이 막을 수 없어요.\n'
+          '설정에서 끄면 경로가 정확해집니다.',
+          style: AppTextStyles.sans(
+              fontSize: 13, color: AppColors.mutedForeground),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('그냥 시작',
+                style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('설정 열기',
+                style: AppTextStyles.sans(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
   /// 절전 제외가 왜 필요한지 설명하는 사전 안내. [true] 면 시스템 팝업으로 간다.
   ///
   /// 맥락 없이 시스템 팝업부터 띄우면 반사적으로 거부한다. 알림 권한과 같은
@@ -289,7 +351,19 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     setState(() => _showStopConfirm = false);
     final tracker = ref.read(runTrackerProvider.notifier);
     final route = ref.read(runTrackerProvider).route;
+    final distanceKm = ref.read(runTrackerProvider).distanceKm;
+    // 여정 진행률은 **저장 전에** 읽는다. 저장 뒤에 읽으면 DB 스트림이 아직
+    // 안 돌았을 수 있어 방금 뛴 거리가 반영됐는지 알 수 없다. 저장 전 값에서
+    // 이번 거리를 직접 빼면 순서에 기대지 않아도 된다.
+    final journey = ref.read(journeyProgressProvider);
     tracker.stop(); // 결과 화면으로 즉시 전환
+
+    final remainingAfter = journey.remainingKm - distanceKm;
+    ref.read(voiceGuideProvider).speak(finishMessage(
+          cityName: journey.toCity.name,
+          remainingKm: remainingAfter,
+          arrived: remainingAfter <= 0,
+        ));
 
     // 대표 이미지(경로 렌더) 생성 후 로컬 DB 저장.
     final coverUrl = await renderRouteCover(route);
@@ -958,12 +1032,12 @@ class _StopConfirm extends StatelessWidget {
 
 // ── 하위 위젯 ──────────────────────────────────────────────────
 
-class _RunTypeCard extends StatelessWidget {
+class _RunTypeCard extends ConsumerWidget {
   const _RunTypeCard(this.type);
   final RunType type;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ({String emoji, String label, Color color}) meta = switch (type) {
       RunType.normal => (emoji: '🏃', label: '일반 러닝', color: AppColors.primary),
       RunType.theme => (emoji: '🗺️', label: '테마 러닝', color: AppColors.typeTheme),
@@ -973,7 +1047,7 @@ class _RunTypeCard extends StatelessWidget {
           color: AppColors.typeOnline
         ),
     };
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.muted,
@@ -1000,75 +1074,148 @@ class _RunTypeCard extends StatelessWidget {
         ],
       ),
     );
+
+    // 🔧 음성 안내 미리듣기 — **디버그 빌드 전용**(`kDebugMode`).
+    //
+    // 구간 안내는 원래 1km 를 뛰어야 들리는데, 문구를 다듬을 때마다 밖에
+    // 나갈 수는 없다. 길게 눌러 네 문장을 이어서 듣는다.
+    // 스와이프 미리보기(2026-09-26)와 같은 방식이다 — 릴리즈엔 안 들어간다.
+    if (!kDebugMode) return card;
+    return GestureDetector(
+      onLongPress: () => _previewVoice(ref),
+      child: card,
+    );
+  }
+
+  Future<void> _previewVoice(WidgetRef ref) async {
+    final voice = ref.read(voiceGuideProvider);
+    for (final line in [
+      startMessage(),
+      kmMessage(km: 1, splitSeconds: 388, avgSeconds: 388),
+      kmMessage(km: 2, splitSeconds: 388, avgSeconds: 401),
+      finishMessage(cityName: '전주', remainingKm: 142.63),
+      finishMessage(cityName: '전주', remainingKm: 0, arrived: true),
+    ]) {
+      // `awaitSpeakCompletion(true)` 라 한 문장이 끝나야 다음으로 넘어간다.
+      await voice.speak(line);
+    }
   }
 }
 
+/// 출발 전 날씨 카드. **정본은 Figma**(`App.tsx` 904-907줄).
+///
+/// 구조: `날씨` 라벨 + `☀️ 28°C 맑음` **한 줄**. 2026-09-27 에 미세먼지와 함께
+/// Figma 구조로 맞췄다 — 그전에는 라벨 없이 `24°` / `체감 26°` 두 줄이었다
+/// (`figma-alignment.md` 3번).
+///
+/// 🟢 **체감온도를 빼고 날씨 상태(맑음)를 넣는다**(2026-09-27 사용자 결정).
+/// 기능정의서 4-2 섹션 B 는 "아이콘 + 기온 + 체감온도" 라고 적어뒀지만
+/// **Figma 에는 체감온도가 없고 대신 상태 텍스트가 있다.** 미세먼지 배경
+/// (결정 ⑥)과 같은 판단으로 Figma 를 따른다.
+///
+/// 🔴 **값은 샘플이다. 실제 관측값이 아니다.** 기상청 API 키가 나오기 전이라
+/// 화면만 만들어둔 상태다(`feature-backlog.md`). 미세먼지
+/// (`air_quality_provider.dart`)도 같은 이유로 샘플이다.
+///
+/// ⚠️ 시연에서 진짜처럼 보인다. 팀에 보여줄 때 연동 전이라고 말할 것.
 class _WeatherCard extends StatelessWidget {
   const _WeatherCard();
 
   @override
   Widget build(BuildContext context) {
     return _MiniCard(
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('☀️', style: TextStyle(fontSize: 20)),
-          const SizedBox(width: 8),
-          Column(
-            // 기본값 MainAxisSize.max 로 두면 64 높이 카드를 세로로 꽉 채우고
-            // 기본 정렬(start)이 글자를 위로 밀어붙인다. 그러면 Row 가 중앙에
-            // 놓는 아이콘과 어긋나 보인다.
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('24°', style: AppTextStyles.display(fontSize: 20)),
-              Text('체감 26°',
-                  style: AppTextStyles.sans(
-                      fontSize: 9, color: AppColors.mutedForeground)),
-            ],
-          ),
+          Text('날씨',
+              style: AppTextStyles.sans(
+                  fontSize: 9, color: AppColors.mutedForeground)),
+          const SizedBox(height: 4),
+          // 이모지·기온·상태가 한 줄이다. Figma 샘플값(28°C 맑음)을 그대로 쓴다.
+          Text('☀️ 28°C 맑음',
+              style: AppTextStyles.sans(
+                  fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 }
 
-/// 미세먼지 카드 — 4단계 상태 바(기능정의서 4-2 섹션 B).
+/// 미세먼지 카드. **정본은 Figma**(`App.tsx` 678-685 · 908-930줄) 다.
 ///
-/// 값은 [airQualityProvider] 가 준다. 아직 에어코리아 연동 전이라 항상 null
-/// 이고, 그때는 "불러오지 못했어요"(`offline-handling.md` §2-A)를 보인다.
+/// 구조: `미세먼지 42` 라벨 + 단계 pill / 그라데이션 게이지 + 흰 마커 /
+/// 4단계 레이블. 2026-09-27 에 Figma 구조로 다시 맞췄다 —
+/// 그전에는 점 4개짜리 막대였다(`figma-alignment.md` 3번).
+///
+/// 🟢 **카드 배경은 단계와 무관하게 그대로 둔다**(2026-09-27 사용자 결정).
+/// 기능정의서 4-2 섹션 B 는 "나쁨=주황 배경·매우나쁨=빨강 배경" 이라고
+/// 적어뒀지만 **Figma 는 배경을 안 바꾸고 pill 색만 바꾼다.** CLAUDE.md 의
+/// "화면·비주얼은 Figma" 원칙과 2026-09-20 결정 ②(미세먼지 색은 Figma)를
+/// 따라 Figma 쪽으로 통일했다. 경고는 pill 이 맡는다.
 class _DustCard extends ConsumerWidget {
   const _DustCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final quality = ref.watch(airQualityProvider);
-    if (quality == null) return const _MiniCard(child: _DustUnavailable());
+    final reading = ref.watch(airQualityProvider);
+    if (reading == null) return const _MiniCard(child: _DustUnavailable());
 
-    final color = _dustColor(quality);
+    final level = reading.level;
+    final color = _dustColor(level);
+    // Figma: 나쁨·매우나쁨만 단계 색 pill, 나머지는 무채색이다.
+    final isBad = level.needsAlertBackground;
+    final pillColor = isBad ? color : AppColors.mutedForeground;
+
     return _MiniCard(
-      // 문서가 배경 활성을 '나쁨'·'매우나쁨' 으로 한정한다 — 좋음·보통까지
-      // 물들이면 경고가 일상이 되어 정작 나쁜 날에 눈에 안 띈다.
-      background: quality.needsAlertBackground
-          ? AppColors.badgeBackground(color)
-          : null,
       child: Column(
-        // 위 _WeatherCard 와 같은 이유로 내용 높이만 차지하게 한다.
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('미세먼지',
-              style: AppTextStyles.sans(
-                  fontSize: 9, color: AppColors.mutedForeground)),
-          const SizedBox(height: 3),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(quality.label,
+              // 농도 수치는 Figma 에 없지만 함께 보여준다(2026-09-27 결정) —
+              // 게이지 마커만으로는 '얼마나' 를 읽을 수 없다. 단위(㎍/㎥)는
+              // 좁은 카드에서 자리를 많이 먹어 숫자만 쓴다.
+              Text('미세먼지 ${reading.value}',
                   style: AppTextStyles.sans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: color)),
-              const SizedBox(width: 8),
-              _DustBar(step: quality.step, color: color),
+                      fontSize: 9, color: AppColors.mutedForeground)),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isBad
+                      ? AppColors.badgeBackground(color)
+                      : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: isBad
+                        ? color.withValues(alpha: 0.21)
+                        : Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Text(level.label,
+                    style: AppTextStyles.sans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: pillColor)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _DustGauge(ratio: reading.gaugeRatio),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final l in AirQuality.values)
+                Text(l.label,
+                    style: AppTextStyles.sans(
+                        fontSize: 7,
+                        fontWeight: FontWeight.w500,
+                        // 현재 단계만 제 색으로, 나머지는 가라앉힌다.
+                        color: l == level ? _dustColor(l) : _dustLabelOff)),
             ],
           ),
         ],
@@ -1077,30 +1224,72 @@ class _DustCard extends ConsumerWidget {
   }
 }
 
-/// 4단계 중 [step] 칸까지 채운 막대.
-class _DustBar extends StatelessWidget {
-  const _DustBar({required this.step, required this.color});
+/// 꺼진 단계 레이블 색(Figma `#4B5563`).
+const _dustLabelOff = Color(0xFF4B5563);
 
-  final int step;
-  final Color color;
+/// 4단계 색이 이어지는 그라데이션 바 + 현재 농도 위치의 흰 마커.
+///
+/// 정지점(0 · 0.4 · 0.7 · 1.0)은 Figma 그대로다 — 등간격이 아니라
+/// **'좋음' 구간이 넓다.** 실제 농도 분포가 그쪽에 몰려 있어서다.
+class _DustGauge extends StatelessWidget {
+  const _DustGauge({required this.ratio});
+
+  /// 0~1. 마커를 놓을 위치.
+  final double ratio;
+
+  static const _height = 6.0;
+  static const _marker = 8.0;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 1; i <= 4; i++) ...[
-          if (i > 1) const SizedBox(width: 4),
-          Container(
-            width: 11,
-            height: 6,
-            decoration: BoxDecoration(
-              color: i <= step ? color : AppColors.muted,
-              borderRadius: BorderRadius.circular(3),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 마커가 바 밖으로 나가지 않게 반지름만큼 안쪽으로 당긴다.
+        final usable = constraints.maxWidth - _marker;
+        return SizedBox(
+          height: _marker,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Container(
+                height: _height,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(_height / 2),
+                  gradient: const LinearGradient(
+                    colors: [
+                      AppColors.dustGood,
+                      AppColors.dustModerate,
+                      AppColors.dustBad,
+                      AppColors.dustVeryBad,
+                    ],
+                    stops: [0, 0.4, 0.7, 1],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: usable * ratio,
+                child: Container(
+                  width: _marker,
+                  height: _marker,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: Colors.black.withValues(alpha: 0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
@@ -1151,12 +1340,12 @@ Color _dustColor(AirQuality quality) => switch (quality) {
     };
 
 class _MiniCard extends StatelessWidget {
-  const _MiniCard({required this.child, this.background});
+  const _MiniCard({required this.child});
   final Widget child;
 
-  /// 기본은 카드 색. 미세먼지 '나쁨' 이상에서만 경고색이 들어온다.
-  final Color? background;
-
+  // 예전에는 배경색을 받는 파라미터가 있었다. 미세먼지 '나쁨' 이상에서 카드를
+  // 물들이는 용도였는데, 2026-09-27 에 **Figma 대로 배경을 안 바꾸기로** 해서
+  // 쓰는 곳이 없어졌다(_DustCard 주석 참조).
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1164,7 +1353,7 @@ class _MiniCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
-        color: background ?? AppColors.card,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),

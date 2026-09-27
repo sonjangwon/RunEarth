@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -11,6 +12,7 @@ import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/models/run.dart';
 import '../../../core/theme/app_colors.dart';
+import 'voice_guide.dart';
 
 /// 러닝 세션 상태 머신 단계. (기능정의서 4-2-C + run-flow.md)
 enum RunSessionPhase { prerun, countdown, running, paused, stopped }
@@ -111,6 +113,9 @@ class RunSessionState {
 /// 화면을 꺼도 추적이 이어지도록 포그라운드 서비스로 실행하고(run-flow.md 6),
 /// 그래도 앱이 죽는 경우에 대비해 진행 중 러닝을 10초마다 로컬에 스냅샷한다.
 class RunTracker extends Notifier<RunSessionState> {
+  /// 절전 모드 판정용 안드로이드 채널. 정본: `MainActivity.kt`.
+  static const _powerChannel = MethodChannel('com.runearth.run_earth/power');
+
   Timer? _elapsedTimer;
   Timer? _countdownTimer;
   Timer? _snapshotTimer;
@@ -128,6 +133,12 @@ class RunTracker extends Notifier<RunSessionState> {
 
   /// RESUME 직후 첫 좌표는 일시정지 중 이동분을 거리에 더하지 않도록 앵커로만 쓴다.
   bool _skipNextSegment = false;
+
+  /// 음성으로 마지막에 읽어준 km. 같은 구간을 두 번 읽지 않기 위한 것.
+  int _lastAnnouncedKm = 0;
+
+  /// 그 km 경계를 지난 시점의 경과 시간(ms). 구간 페이스의 기준점이다.
+  int _lastKmBoundaryMs = 0;
 
   /// 경로·거리에 반영할 최소 이동 거리(m). 정지 중 GPS 노이즈가 거리로
   /// 쌓이는 걸 막는다(run-flow.md 6).
@@ -152,7 +163,7 @@ class RunTracker extends Notifier<RunSessionState> {
   static const _maxSpeedMps = 6.0;
 
   /// 🔧 진단 로그를 몇 번 찍었나(2026-09-26, `_onPosition` 참조).
-  /// 확인이 끝나면 로그와 함께 지운다.
+  /// 2026-09-27 확인 완료 후에도 **남겨두기로 했다** — 사유는 `_onPosition` 주석.
   int _rawLogCount = 0;
 
   /// 이 시간을 넘겨 좌표가 끊겼으면 속도 검사를 건너뛴다.
@@ -205,8 +216,11 @@ class RunTracker extends Notifier<RunSessionState> {
       route: const [],
     );
     _startedAt = DateTime.now();
+    _lastAnnouncedKm = 0;
+    _lastKmBoundaryMs = 0;
     _startElapsedTimer();
     _startSnapshotTimer(); // 위치 스트림은 [start] 에서 이미 켰다.
+    ref.read(voiceGuideProvider).speak(startMessage());
   }
 
   /// 출발 전 지도를 채운다. 달리기 탭을 열 때 화면이 부른다.
@@ -334,7 +348,7 @@ class RunTracker extends Notifier<RunSessionState> {
       s: pos.speedAccuracy > 0 ? (pos.speed * 100).round() : null,
     );
 
-    // 🔧 진단 로그(2026-09-26) — 위 판정이 맞는지 확인하는 동안만 둔다.
+    // 🔧 진단 로그 — 위 판정이 맞는지 확인하려고 2026-09-26 에 넣었다.
     //
     // 고친 뒤에도 `a` 가 null 이면 **"값이 안 온다"** 와 **"판정이 틀렸다"** 를
     // 구분해야 하는데, 원시값을 안 찍으면 그걸 알 방법이 없다. 그래서 판정
@@ -342,7 +356,17 @@ class RunTracker extends Notifier<RunSessionState> {
     //
     // 앞 5개만 찍는다 — 매 좌표마다 찍으면 logcat 이 밀려 필터 로그가
     // 사라진다. 한 세션에서 5개면 값이 오는지 아닌지는 충분히 판가름난다.
-    // **확인이 끝나면 지울 것**(정확도 임계값을 정할 때 함께).
+    //
+    // ✅ **2026-09-27 확인 완료** — 절전 모드를 끈 노트8 실측에서 좌표
+    // 118개 전부에 정확도(3~7m)·속도가 들어왔다. 값으로 판단하는 위 방식이
+    // 맞다(`run-flow.md` 6 "2026-09-27 대조 측정").
+    //
+    // **그래도 남겨둔다**(사용자 결정 2026-09-27). 기기·환경이 바뀌면 다시
+    // 물어야 할 질문이고, 세션당 5줄이라 비용이 없다.
+    // `kDebugMode` 로 감싸지 **않는다** — 야외 검증은 릴리즈 빌드로 하므로
+    // (2026-09-23 노트) 감싸면 정작 필요할 때 안 찍힌다.
+    // 지울 때는 아래 `[gps] 버림` 로그와 헷갈리지 말 것 — 그쪽은 임시가
+    // 아니라 필터가 무엇을 버렸는지 보려고 의도적으로 남긴 것이다.
     if (_rawLogCount < 5) {
       _rawLogCount++;
       debugPrint('[gps] 원시 — accuracy=${pos.accuracy} speed=${pos.speed} '
@@ -399,10 +423,59 @@ class RunTracker extends Notifier<RunSessionState> {
     final add = (_skipNextSegment || stale) ? 0.0 : meters / 1000;
     _skipNextSegment = false;
 
+    final beforeKm = state.distanceKm;
     state = state.copyWith(
       route: [...state.route, point],
-      distanceKm: state.distanceKm + add,
+      distanceKm: beforeKm + add,
     );
+
+    _announceKmIfCrossed(
+      beforeKm: beforeKm,
+      addedKm: add,
+      fromElapsedMs: last.e!,
+      toElapsedMs: point.e!,
+    );
+  }
+
+  /// 이 좌표로 1km 경계를 넘었으면 음성으로 알린다.
+  ///
+  /// **경계 시각을 보간한다.** 좌표가 경계에 딱 떨어지는 일은 없어서, 도착
+  /// 좌표의 시각을 그대로 쓰면 구간이 실제보다 길어지고 그 오차가 뒤로 계속
+  /// 밀린다. 기록 화면의 구간 페이스(`km_splits.dart`)가 쓰는 방식과 같게
+  /// 맞춘 것이다 — **음성과 화면이 다른 숫자를 말하면 그게 곧 버그 신고다.**
+  ///
+  /// 한 번에 2km 이상을 넘겼으면 **마지막 것만, 페이스 없이** 읽는다.
+  /// 연달아 "1킬로미터" "2킬로미터" 를 읽으면 안내가 아니라 소음이고,
+  /// 그렇게 벌어진 구간은 페이스도 믿을 값이 아니다.
+  void _announceKmIfCrossed({
+    required double beforeKm,
+    required double addedKm,
+    required int fromElapsedMs,
+    required int toElapsedMs,
+  }) {
+    if (addedKm <= 0) return;
+    final afterKm = beforeKm + addedKm;
+    final crossed = afterKm.floor();
+    if (crossed <= _lastAnnouncedKm) return;
+
+    final jumpedMany = crossed - _lastAnnouncedKm > 1;
+
+    // 경계를 지난 시점의 경과 시간 — 좌표 사이를 거리 비율로 나눈다.
+    final ratio = ((crossed - beforeKm) / addedKm).clamp(0.0, 1.0);
+    final boundaryMs =
+        fromElapsedMs + ((toElapsedMs - fromElapsedMs) * ratio).round();
+
+    final splitSeconds = ((boundaryMs - _lastKmBoundaryMs) / 1000).round();
+    final avgSeconds = (boundaryMs / 1000 / crossed).round();
+
+    _lastAnnouncedKm = crossed;
+    _lastKmBoundaryMs = boundaryMs;
+
+    ref.read(voiceGuideProvider).speak(kmMessage(
+          km: crossed,
+          splitSeconds: jumpedMany ? null : splitSeconds,
+          avgSeconds: avgSeconds,
+        ));
   }
 
   /// PAUSE ↔ RESUME 토글.
@@ -644,6 +717,54 @@ class RunTracker extends Notifier<RunSessionState> {
     if (!Platform.isAndroid) return true;
     final status = await Permission.ignoreBatteryOptimizations.request();
     return status.isGranted;
+  }
+
+  // ── 절전 모드 (run-flow.md 7 '기기 절전 모드가 켜진 채 START') ──
+
+  /// 기기 절전 모드 때문에 **위치가 실제로 끊기는 조건**인가.
+  ///
+  /// Android 9(API 28) 이하 + 절전 모드 켜짐일 때만 true 다. 판정은 안드로이드
+  /// 쪽에서 한다([MainActivity] `isPowerSaveBlocking`) — 버전과 절전 상태를
+  /// 한곳에서 보는 게 맞고, Dart 에는 둘 다 읽을 API 가 없다.
+  ///
+  /// **왜 필요한가**: Android 9 이하는 절전 모드에서 화면을 끄면 OS 가 위치
+  /// 서비스를 정지시키고 **앱이 막을 수 없다.** 2026-09-26 노트8 실측에서
+  /// 205초 공백이 났고, 끊기기 직전 좌표는 정확도 12m 로 멀쩡했다 — 신호가
+  /// 나빠진 게 아니라 OS 가 꺼버린 것이다. 2026-09-27 에 같은 폰에서 절전만
+  /// 끄고 재측정하니 정확도 중앙값 20m → 4m, 점프 19건 → 0건이 됐다.
+  ///
+  /// [isBatteryOptimizationIgnored] 와 **별개다.** 그건 백그라운드 작업 제한
+  /// (doze whitelist)을 푸는 것이고, 절전 모드의 위치 차단은 다른 문제다.
+  /// 노트8 은 whitelist 에 등록돼 있었는데도 끊겼다.
+  ///
+  /// 채널이 없거나(iOS·테스트) 실패하면 **false** — 안내를 띄우지 않을 뿐
+  /// 러닝은 그대로 진행된다.
+  Future<bool> isPowerSaveBlocking() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await _powerChannel.invokeMethod<bool>('isPowerSaveBlocking') ??
+          false;
+    } on PlatformException catch (e) {
+      debugPrint('[run] 절전 모드 조회 실패: $e');
+      return false;
+    } on MissingPluginException catch (e) {
+      debugPrint('[run] 절전 모드 채널 없음: $e');
+      return false;
+    }
+  }
+
+  /// 절전 모드 설정 화면을 연다. 끄는 스위치가 거기 있다.
+  ///
+  /// 실패해도 조용히 넘어간다 — 화면이 안 열린다고 러닝을 막을 이유는 없다.
+  Future<void> openBatterySaverSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _powerChannel.invokeMethod<void>('openBatterySaverSettings');
+    } on PlatformException catch (e) {
+      debugPrint('[run] 절전 설정 열기 실패: $e');
+    } on MissingPluginException catch (e) {
+      debugPrint('[run] 절전 모드 채널 없음: $e');
+    }
   }
 
   // ── 위치 권한 (global-states.md 3 '위치 권한 3단계') ────────────

@@ -61,6 +61,7 @@ dependencies:
   # 요구하는데 AGP 9.0.1 의 권장 최대가 36 이라 빌드가 깨진다(2026-09-19).
   # 올리려면 AGP → compileSdk 순으로 함께 올려야 한다.
   permission_handler: ^12.0.3
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
