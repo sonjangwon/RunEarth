@@ -6,6 +6,7 @@ import '../../../core/models/app_badge.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../services/sync/run_sync_service.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
 import '../../home/data/home_providers.dart';
@@ -384,7 +385,7 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
               color: AppColors.foreground)),
       content: Text(
         '이 기기에서만 로그아웃됩니다.\n'
-        '기록은 그대로 남아 있어요.',
+        '기록은 서버에 남아 있어 다시 로그인하면 돌아와요.',
         style:
             AppTextStyles.sans(fontSize: 13, color: AppColors.mutedForeground),
       ),
@@ -402,7 +403,8 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
       ],
     ),
   );
-  if (ok != true) return;
+  if (ok != true || !context.mounted) return;
+  if (!await _confirmUnsyncedLoss(context, ref)) return;
 
   try {
     await ref.read(authServiceProvider).signOut();
@@ -479,7 +481,8 @@ Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
       ],
     ),
   );
-  if (confirmed != true) return;
+  if (confirmed != true || !context.mounted) return;
+  if (!await _confirmUnsyncedLoss(context, ref)) return;
 
   try {
     await ref.read(authServiceProvider).deleteAccount();
@@ -491,6 +494,48 @@ Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text('탈퇴에 실패했어요: $e')));
   }
+}
+
+/// 로그아웃·탈퇴는 이 기기의 기록을 비운다. **못 올린 기록이 있으면 사라지므로**
+/// 먼저 한 번 올려보고, 그래도 남으면 건수를 보여주고 묻는다
+/// (profile-settings.md '로그아웃'). 계속해도 되면 true.
+Future<bool> _confirmUnsyncedLoss(BuildContext context, WidgetRef ref) async {
+  final pending =
+      await ref.read(runSyncServiceProvider).uploadThenCountPending();
+  if (pending == 0) return true;
+  if (!context.mounted) return false;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text('아직 올라가지 않은 기록이 있어요',
+          style: AppTextStyles.sans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.foreground)),
+      content: Text(
+        '서버에 올라가지 않은 기록 $pending건이 있어요.\n'
+        '지금 계속하면 이 기록은 사라져요.\n'
+        '인터넷에 연결하면 자동으로 올라가요.',
+        style:
+            AppTextStyles.sans(fontSize: 13, color: AppColors.mutedForeground),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('취소',
+              style: AppTextStyles.sans(color: AppColors.mutedForeground)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('계속',
+              style: AppTextStyles.sans(color: AppColors.accent)),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
 }
 
 class _SettingsRow extends StatelessWidget {

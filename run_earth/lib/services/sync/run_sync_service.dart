@@ -126,6 +126,9 @@ class RunSyncService {
         if (rows.length < _pageSize) break;
       }
 
+      // 받는 사이에 로그아웃했으면 넣지 않는다 — 비운 로컬에 앞 계정 기록이
+      // 다시 들어온다(profile-settings.md '로그아웃').
+      if (_client.auth.currentUser?.id != userId) return;
       final inserted = await _db.insertDownloadedRuns(downloaded);
       debugPrint('[sync] 내려받기 — 서버 $total건 중 새 기록 $inserted건');
     } catch (e) {
@@ -133,6 +136,29 @@ class RunSyncService {
     } finally {
       _pulling = false;
     }
+  }
+
+  /// 로그아웃 직전 — 밀린 기록을 한 번 올려보고 **그래도 남은 건수**를 준다.
+  ///
+  /// 0 이 아니면 로그아웃이 그 기록을 지운다는 경고를 띄운다
+  /// (profile-settings.md '로그아웃'). 오프라인에서 오래 붙잡지 않게 시간을 끊는다.
+  Future<int> uploadThenCountPending() async {
+    try {
+      await syncNow().timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // 남은 건수로 판단한다.
+    }
+    return (await _db.getUnsyncedRuns()).length;
+  }
+
+  /// 이 기기의 기록 사본(행·스냅샷·이미지 파일)을 비운다. 로그아웃·탈퇴 뒤에 부른다.
+  ///
+  /// 로컬 기록에 소유자가 없어 다음 로그인 계정에 섞이고, 못 올린 기록은 그
+  /// 계정으로 올라가 버린다. 서버에 있는 기록은 다시 로그인하면 돌아온다.
+  Future<void> clearLocal() async {
+    _cancelRetry();
+    await _db.clearLocalRuns();
+    await deleteLocalRunImages();
   }
 
   /// 정책 1 — 횟수 제한 없이 재시도하되 간격을 늘려 배터리를 아낀다.

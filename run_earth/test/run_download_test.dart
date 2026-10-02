@@ -82,6 +82,16 @@ void main() {
     expect(await db.getUnsyncedRuns(), isEmpty);
   });
 
+  test('로그아웃 비우기 뒤 다시 내려받으면 서버 기록이 돌아온다', () async {
+    await db.insertDownloadedRuns([runFromServerRow(_serverRow('run_1'))]);
+    await db.clearLocalRuns();
+    expect(await db.getAllRuns(), isEmpty);
+
+    final n =
+        await db.insertDownloadedRuns([runFromServerRow(_serverRow('run_1'))]);
+    expect(n, 1);
+  });
+
   test('Storage 경로와 이 기기의 파일 경로를 가린다', () {
     expect(isRemoteCoverPath('$_uid/run_1.jpg'), isTrue);
     expect(isCoverPhoto('$_uid/run_1.jpg'), isTrue);

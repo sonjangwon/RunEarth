@@ -87,9 +87,13 @@ class AuthService {
   }
 
   /// 로그아웃 — 해당 기기의 세션만 삭제한다(session-policy.md 4, 다기기 유지).
+  ///
+  /// 세션을 끊은 **뒤에** 로컬 기록을 비운다(profile-settings.md '로그아웃').
+  /// 거꾸로 하면 로그아웃이 실패했을 때 로그인된 채 기록만 사라진다.
   Future<void> signOut() async {
     await _clearGoogleCache();
     await _client.auth.signOut();
+    await _sync.clearLocal();
   }
 
   /// 회원탈퇴 — `deleted_at` 소프트 삭제 후 **전체 기기** 세션 무효화.
@@ -103,6 +107,7 @@ class AuthService {
     await _users.markDeleted();
     await _clearGoogleCache();
     await _client.auth.signOut(scope: SignOutScope.global);
+    await _sync.clearLocal();
   }
 
   /// 구글 쪽 캐시 정리. **실패해도 넘어간다** — 앱을 껐다 켜서 세션이

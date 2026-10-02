@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../supabase/supabase_config.dart';
@@ -61,6 +62,24 @@ final remoteCoverUrlProvider =
       .from(_bucket)
       .createSignedUrl(objectPath, 3600);
 });
+
+/// 앱 문서 폴더의 대표 이미지 파일(사진 `photo_*.jpg` · 경로 렌더 `route_*.png`)을
+/// 전부 지운다. **로그아웃·탈퇴 때 로컬 기록과 함께** 비운다(profile-settings.md).
+///
+/// 한 파일이 안 지워져도 나머지는 계속 지운다 — 로그아웃을 막을 일이 아니다.
+Future<void> deleteLocalRunImages() async {
+  final dir = await getApplicationDocumentsDirectory();
+  await for (final entity in dir.list()) {
+    if (entity is! File) continue;
+    final name = entity.path.split(Platform.pathSeparator).last;
+    if (!name.startsWith(_photoPrefix) && !name.startsWith('route_')) continue;
+    try {
+      await entity.delete();
+    } catch (e) {
+      debugPrint('[cover] 로컬 이미지 삭제 실패: $name $e');
+    }
+  }
+}
 
 /// 사진을 Storage 에 올리고 **객체 경로**를 돌려준다. 올릴 게 없으면 null.
 ///

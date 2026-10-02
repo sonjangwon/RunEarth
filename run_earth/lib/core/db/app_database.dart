@@ -206,6 +206,17 @@ class AppDatabase extends _$AppDatabase {
         return fresh.length;
       });
 
+  /// 이 기기의 러닝 기록·진행 중 스냅샷을 전부 지운다. **로그아웃·탈퇴 전용.**
+  ///
+  /// records.md 의 '삭제 불가' 는 사용자가 기록을 지우는 기능을 두지 않는다는
+  /// 뜻이고, 이건 서버에 남은 기록의 **기기 사본**을 비우는 것이다. 로컬 기록에
+  /// 소유자가 없어 다음 계정에 섞이지 않게 한다(profile-settings.md '로그아웃').
+  /// 다시 로그인하면 내려받기로 돌아온다(offline-handling.md §4-1).
+  Future<void> clearLocalRuns() => transaction(() async {
+        await delete(runs).go();
+        await delete(activeRuns).go();
+      });
+
   /// 업로드 성공 표시.
   ///
   /// 로컬 데이터는 지우지 않는다(2026-09-12 결정) — 로컬이 1차 진실 소스이고
