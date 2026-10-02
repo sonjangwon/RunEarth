@@ -97,8 +97,13 @@ lib/
 ### 실기기 설치 (안드로이드)
 - `adb install -r <apk>` — **데이터 보존**. `uninstall` 은 러닝 기록·로그인이 날아가니 쓰지 않는다
   (보존 확인법: `adb shell dumpsys package com.runearth.run_earth | grep firstInstallTime` 가 그대로인지)
-- **설치 전에 APK 에 env 가 박혔는지 검증한다** — `grep -a "<SUPABASE_URL 호스트>" <apk>` 가
-  걸리지 않으면 위 함정에 빠진 것이다. 앱을 켜서는 알 수 없으니 파일에서 확인한다
+- **설치 전에 APK 에 env 가 박혔는지 검증한다** — 앱을 켜서는 알 수 없으니 파일에서 확인한다.
+  **빌드 종류마다 방법이 다르다:**
+  - **릴리스**: `grep -a "<SUPABASE_URL 호스트>" <apk>` 가 걸리지 않으면 위 함정에 빠진 것이다
+    (Dart 코드가 `libapp.so` 로 무압축 저장돼 문자열이 그대로 보인다)
+  - **디버그**: `grep -a` 는 **env 가 있어도 0건**이 나온다(거짓 음성). Dart 코드가
+    `kernel_blob.bin` 안에 deflate 압축돼 있기 때문이다. zip 엔트리를 풀어서 찾는다
+    (2026-10-01 노트 §4)
 
 ## 디자인 토큰 (정본: `docs/Run Earth_기능정의서.md` 7장, 매번 문서 안 뒤지게 요약)
 | 토큰 | 값 | 용도 |
