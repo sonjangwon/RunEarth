@@ -81,6 +81,9 @@ class AuthService {
     // 지나가기 때문이다. 결과를 기다리지 않는다 — 로그인 버튼의 스피너가
     // 업로드가 끝날 때까지 돌면 안 된다.
     unawaited(_sync.syncNow());
+    // 서버의 내 기록을 내려받는다 — 재설치·기기 변경 후 로그인하면 여기서
+    // 기록이 돌아온다(offline-handling.md §4-1).
+    unawaited(_sync.pullNow());
   }
 
   /// 로그아웃 — 해당 기기의 세션만 삭제한다(session-policy.md 4, 다기기 유지).

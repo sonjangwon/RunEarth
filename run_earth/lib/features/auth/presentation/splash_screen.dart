@@ -65,8 +65,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await Future.wait([Future<void>.delayed(_minSplash), ensureRow]);
     if (!mounted) return;
 
-    // 밀린 기록 업로드 시작. 결과를 기다리지 않는다(홈 진입을 막지 않기 위해).
-    if (loggedIn) unawaited(ref.read(runSyncServiceProvider).syncNow());
+    // 밀린 기록 업로드 + 서버 기록 내려받기(offline-handling.md §4-1).
+    // 결과를 기다리지 않는다(홈 진입을 막지 않기 위해).
+    if (loggedIn) {
+      final sync = ref.read(runSyncServiceProvider);
+      unawaited(sync.syncNow());
+      unawaited(sync.pullNow());
+    }
 
     // 게이트가 켜져 있고 세션이 없으면 로그인.
     if (gate && !loggedIn) {

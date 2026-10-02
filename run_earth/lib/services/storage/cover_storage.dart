@@ -9,7 +9,10 @@ library;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../supabase/supabase_config.dart';
 
 /// 버킷 이름. 정본은 `supabase/migrations/20260925010000_create_cover_storage.sql`.
 const _bucket = 'run-covers';
@@ -28,9 +31,36 @@ String coverPhotoFileName(String runId) => '$_photoPrefix$runId.jpg';
 /// 대표 이미지를 경로로 되돌려도 `coverImageUrl` 은 지우지 않는다. 그래야
 /// "사진 ↔ 경로 이미지 자유 전환"(`run-flow.md` 27-28)이 사진을 다시 고르지
 /// 않고도 된다. 대신 지금 들고 있는 게 사진인지 알아야 해서 이 판정이 있다.
+///
+/// 다른 기기에서 내려받은 기록의 사진([isRemoteCoverPath])도 사진이다.
 bool isCoverPhoto(String? path) =>
     path != null &&
-    path.split(Platform.pathSeparator).last.startsWith(_photoPrefix);
+    (isRemoteCoverPath(path) ||
+        path.split(Platform.pathSeparator).last.startsWith(_photoPrefix));
+
+/// [path] 가 이 기기의 파일이 아니라 **Storage 객체 경로**(`{uid}/{runId}.jpg`)인지.
+///
+/// 서버에서 내려받은 기록이 이 값을 들고 온다(offline-handling.md §4-1).
+/// 사진은 미리 받지 않으므로 로컬 파일이 없다. [uploadCoverPhoto] 가 만드는
+/// 모양 그대로 판정한다 — "절대 경로가 아니면" 으로 가리면 플랫폼마다 답이
+/// 달라진다(윈도우 테스트에서 `/data/...` 가 상대 경로로 나왔다).
+bool isRemoteCoverPath(String? path) =>
+    path != null && _remoteCoverPath.hasMatch(path);
+
+/// `{auth.uid}/{runId}.jpg`. uid 는 Supabase 의 UUID 다.
+final _remoteCoverPath = RegExp(r'^[0-9a-f-]{36}/[^/]+\.jpg$');
+
+/// 서버 사진을 화면에 띄울 임시 URL. 버킷이 private 이라 공개 URL 이 없다.
+///
+/// 1시간짜리라 저장하지 않고 화면을 열 때마다 받는다.
+final remoteCoverUrlProvider =
+    FutureProvider.autoDispose.family<String, String>((ref, objectPath) {
+  return ref
+      .watch(supabaseClientProvider)
+      .storage
+      .from(_bucket)
+      .createSignedUrl(objectPath, 3600);
+});
 
 /// 사진을 Storage 에 올리고 **객체 경로**를 돌려준다. 올릴 게 없으면 null.
 ///
@@ -52,6 +82,10 @@ Future<String?> uploadCoverPhoto(
   required String? localPath,
 }) async {
   if (!isCoverPhoto(localPath)) return null;
+
+  // 내려받은 기록의 사진은 이미 서버에 있다. 경로를 그대로 돌려줘야 한다 —
+  // null 을 주면 대표 이미지를 바꿔 재업로드할 때 서버의 사진 경로가 지워진다.
+  if (isRemoteCoverPath(localPath)) return localPath;
 
   final file = File(localPath!);
   if (!await file.exists()) {

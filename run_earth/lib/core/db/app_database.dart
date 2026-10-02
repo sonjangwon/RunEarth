@@ -182,6 +182,30 @@ class AppDatabase extends _$AppDatabase {
     return q.watch().map((rows) => rows.map((r) => r.read(runs.id)!).toSet());
   }
 
+  /// 서버에서 내려받은 기록을 넣고, 새로 들어간 건수를 돌려준다.
+  ///
+  /// **로컬에 이미 있는 id 는 건너뛴다**(offline-handling.md §4-1). 기록은
+  /// 삭제·수치 수정이 없어 같은 id 면 내용도 같고, 다른 수 있는 건 대표 이미지
+  /// 하나라 로컬(1차 진실 소스) 쪽을 남긴다. 들어간 행은 `syncedAt` 을 채워
+  /// 업로드 대상에서 뺀다 — 이미 서버에 있는 기록이다.
+  Future<int> insertDownloadedRuns(List<Run> downloaded) =>
+      transaction(() async {
+        final existing = (await (selectOnly(runs)..addColumns([runs.id]))
+                .get())
+            .map((r) => r.read(runs.id)!)
+            .toSet();
+        final fresh =
+            downloaded.where((r) => !existing.contains(r.id)).toList();
+        if (fresh.isEmpty) return 0;
+
+        final syncedAt = Value(DateTime.now());
+        await batch((b) => b.insertAll(runs, [
+              for (final r in fresh)
+                r.toCompanion().copyWith(syncedAt: syncedAt),
+            ]));
+        return fresh.length;
+      });
+
   /// 업로드 성공 표시.
   ///
   /// 로컬 데이터는 지우지 않는다(2026-09-12 결정) — 로컬이 1차 진실 소스이고

@@ -86,6 +86,55 @@ class RunSyncService {
     }
   }
 
+  bool _pulling = false;
+
+  /// 한 번에 읽는 행 수. Supabase API 기본 상한(1000)과 같다 — 더 크게 잡아도
+  /// 서버가 1000 에서 자르므로, 넘는 기록은 페이지를 넘겨 받는다.
+  static const _pageSize = 1000;
+
+  /// 서버의 내 기록을 내려받아 로컬에 없는 것만 넣는다(offline-handling.md §4-1).
+  ///
+  /// 재설치·기기 변경 후에도 같은 기록이 보이게 하는 쪽이다. 실패해도
+  /// 재시도 타이머를 걸지 않는다 — 다음 앱 시작·로그인·재연결 때 다시 돈다.
+  Future<void> pullNow() async {
+    if (_pulling) return;
+    if (!SupabaseConfig.isConfigured) return;
+
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _pulling = true;
+    try {
+      final downloaded = <Run>[];
+      var total = 0;
+      for (var from = 0;; from += _pageSize) {
+        final rows = await _client
+            .from('runs')
+            .select()
+            .eq('user_id', userId)
+            .order('id')
+            .range(from, from + _pageSize - 1);
+        total += rows.length;
+        for (final row in rows) {
+          try {
+            downloaded.add(runFromServerRow(row));
+          } catch (e) {
+            // 업로드 정책 3 과 같다 — 깨진 한 건이 나머지를 막지 않게.
+            debugPrint('[sync] 내려받기 변환 실패 ${row['id']}: $e');
+          }
+        }
+        if (rows.length < _pageSize) break;
+      }
+
+      final inserted = await _db.insertDownloadedRuns(downloaded);
+      debugPrint('[sync] 내려받기 — 서버 $total건 중 새 기록 $inserted건');
+    } catch (e) {
+      debugPrint('[sync] 내려받기 실패: $e');
+    } finally {
+      _pulling = false;
+    }
+  }
+
   /// 정책 1 — 횟수 제한 없이 재시도하되 간격을 늘려 배터리를 아낀다.
   void _scheduleRetry() {
     _retryTimer?.cancel();
@@ -138,6 +187,32 @@ class RunSyncService {
   void dispose() => _cancelRetry();
 }
 
+/// 서버 행(snake_case) → 모델. [RunSyncService._payload] 의 역방향이다.
+///
+/// enum 은 업로드 때 모델의 JSON 값 그대로 올렸으므로 `Run.fromJson` 에
+/// 그대로 넘긴다. `cover_image_url` 은 파일 경로가 아니라 **Storage 객체
+/// 경로**(`{uid}/{runId}.jpg`)다 — 화면은 `isRemoteCoverPath` 로 가려 서버에서
+/// 읽는다(`cover_storage.dart`).
+Run runFromServerRow(Map<String, dynamic> row) => Run.fromJson({
+      'id': row['id'],
+      'date': row['date'],
+      'day': row['day'],
+      'km': row['km'],
+      'pace': row['pace'],
+      'dur': row['dur'],
+      'kcal': row['kcal'],
+      'type': row['type'],
+      'year': row['year'],
+      'month': row['month'],
+      'coverImageType': row['cover_image_type'],
+      'coverImageUrl': row['cover_image_url'],
+      'marathonChallengeId': row['marathon_challenge_id'],
+      'marathonCourseId': row['marathon_course_id'],
+      'gpsVerified': row['gps_verified'],
+      'source': row['source'],
+      'route': row['route'],
+    });
+
 final runSyncServiceProvider = Provider<RunSyncService>((ref) {
   final service = RunSyncService(
     ref.watch(appDatabaseProvider),
@@ -170,8 +245,12 @@ final syncOnReconnectProvider = Provider<void>((ref) {
     final wasOffline = prev?.valueOrNull == false;
     final isOnline = next.valueOrNull == true;
     if (wasOffline && isOnline) {
-      debugPrint('[sync] 재연결 감지 — 밀린 업로드 시도');
-      unawaited(ref.read(runSyncServiceProvider).syncNow());
+      debugPrint('[sync] 재연결 감지 — 밀린 업로드·내려받기 시도');
+      final sync = ref.read(runSyncServiceProvider);
+      unawaited(sync.syncNow());
+      // 오프라인으로 앱을 켜면 시작 시 내려받기가 실패한다 — 연결되면 채운다
+      // (offline-handling.md §4-1 '한계').
+      unawaited(sync.pullNow());
     }
   });
 });

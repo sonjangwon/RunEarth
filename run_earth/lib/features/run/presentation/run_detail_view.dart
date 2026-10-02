@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/geo.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/storage/cover_storage.dart';
 import '../data/km_splits.dart';
 import 'route_painter.dart';
 
@@ -718,6 +720,29 @@ class _RouteHeroBody extends StatelessWidget {
   }
 }
 
+/// 서버에 있는 사진(다른 기기에서 내려받은 기록). offline-handling.md §4-1.
+///
+/// 미리 받아두지 않으므로 오프라인이면 안 보인다 — 받는 중·실패 모두 로컬
+/// 파일이 사라졌을 때와 같은 단색으로 둔다. 수치는 위에 그대로 얹힌다.
+class _RemotePhoto extends ConsumerWidget {
+  const _RemotePhoto({required this.objectPath});
+
+  final String objectPath;
+
+  static const _placeholder = ColoredBox(color: AppColors.muted);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final url = ref.watch(remoteCoverUrlProvider(objectPath)).valueOrNull;
+    if (url == null) return _placeholder;
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => _placeholder,
+    );
+  }
+}
+
 /// 사진 모드 히어로 — 등록한 사진을 배경으로 깔고 수치를 왼쪽에 세로로 쌓는다.
 ///
 /// 정본은 Figma `App.tsx` 492-528(Strava 식). 경로 모드와 달리 **경로는 우하단
@@ -747,12 +772,16 @@ class _PhotoHeroBody extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // 사진 — 잘려도 꽉 채운다(4:5 비율에 맞춘다).
-        Image.file(
-          File(photoPath),
-          fit: BoxFit.cover,
-          // 파일이 사라진 기록(기기 정리·백업 복원)도 화면이 깨지지 않게.
-          errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.muted),
-        ),
+        // 다른 기기에서 내려받은 기록은 파일이 없어 서버에서 읽는다(§4-1).
+        if (isRemoteCoverPath(photoPath))
+          _RemotePhoto(objectPath: photoPath)
+        else
+          Image.file(
+            File(photoPath),
+            fit: BoxFit.cover,
+            // 파일이 사라진 기록(기기 정리·백업 복원)도 화면이 깨지지 않게.
+            errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.muted),
+          ),
         // 위아래 그라데이션 — 상단 버튼·뱃지와 하단 수치가 읽히게.
         //
         // 상단은 Figma(0.5)보다 진한 **0.65** 다. Figma 목업 사진은 어두운데,
