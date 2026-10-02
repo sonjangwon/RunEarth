@@ -6,4 +6,3 @@ library;
 
 /// 아바타 URL 이 없거나 만료됐을 때의 폴백 이모지.
 const profileAvatar = '🏃';
-const appVersion = 'v1.12.2';

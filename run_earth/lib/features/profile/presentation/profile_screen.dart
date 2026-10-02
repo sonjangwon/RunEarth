@@ -10,6 +10,7 @@ import '../../auth/data/auth_providers.dart';
 import '../../auth/data/user_repository.dart';
 import '../../home/data/home_providers.dart';
 import '../../records/data/records_providers.dart';
+import '../data/app_version_provider.dart';
 import '../data/badge_providers.dart';
 import '../data/profile_sample_data.dart';
 
@@ -339,9 +340,11 @@ class _SettingsSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Text(appVersion,
-            style: AppTextStyles.mono(
-                fontSize: 10, color: AppColors.mutedForeground)),
+        // 못 읽으면 비워둔다 — 가짜 버전을 띄우지 않는다(profile-settings.md 3).
+        if (ref.watch(appVersionProvider).valueOrNull case final version?)
+          Text(version,
+              style: AppTextStyles.mono(
+                  fontSize: 10, color: AppColors.mutedForeground)),
       ],
     );
   }
