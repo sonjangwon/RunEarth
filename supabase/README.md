@@ -23,3 +23,21 @@ SQL 을 그대로 기록해둔 것이다.
 | `20260912020000_create_users.sql` | `public.users` + RLS 3종 | 2026-09-12 |
 | `20260912030000_create_runs.sql` | `public.runs` + 인덱스 + RLS 3종 | 2026-09-12 |
 | `20260925010000_create_cover_storage.sql` | `run-covers` Storage 버킷(private) + `storage.objects` RLS 3종 | 2026-09-25 |
+| `20261003010000_schedule_purge_deleted_users.sql` | pg_cron·pg_net + 매일 04:00 KST 에 `purge-deleted-users` 호출. **비밀값은 Vault 에 따로**(파일엔 자리표시만) | 2026-10-03 |
+
+## Edge Functions
+
+`functions/` 도 대시보드(Edge Functions → Via Editor)에 붙여넣어 배포했다. 코드를
+바꾸면 **대시보드 재배포 + 이 폴더 커밋**을 같이 한다(마이그레이션과 같은 규칙).
+
+| 함수 | 내용 | 설정 |
+|---|---|---|
+| `purge-deleted-users` | 탈퇴 30일 지난 계정의 사진 → auth 계정 삭제(users·runs cascade). `?dry=1` 은 대상 수만 | **Verify JWT 끔**. Secret `PURGE_SECRET` = Vault `purge_secret` 과 **같은 값**이어야 한다 |
+
+> **⚠️ 비밀값이 어긋나면 조용히 실패한다 (2026-10-03 실제로 겪음).** Vault 에 자리표시
+> 글자(7자)가 들어가 예약 호출이 매일 `403` 을 받을 뻔했다. 화면엔 오류가 안 뜬다.
+> 바꾼 뒤에는 **예약과 같은 경로로** 확인한다:
+> `select length(decrypted_secret) from vault.decrypted_secrets where name='purge_secret';` → 64,
+> 마이그레이션 파일의 `net.http_post` 를 URL 에 `?dry=1` 을 붙여 실행 →
+> `select status_code, content from net._http_response order by created desc limit 1;` → `200`.
+> 실행 이력은 `cron.job_run_details`.
