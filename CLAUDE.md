@@ -17,6 +17,7 @@
 | `docs/feature-backlog.md` | 전체 현황판 | 계속 고침 |
 | `docs/dev-notes/` | `YYYY-MM-DD-주제.md` 세션 기록 | **한 번 쓰고 안 고침**. 낡으면 지우지 말고 ⛔ 로 표시하고 정본을 가리킨다 |
 | `docs/reports/` | 팀·외부에 **내보내는** 산출물 (`YYYY-MM-DD-*.md` + 생성된 `.html`) | 계속 다시 만듦 |
+| `docs/legal/` | 외부에 공개하는 법적 문서 (개인정보처리방침·이용약관) | 계속 고침. **시행일·변경 이력 필수**, 앱 동작이 바뀌면 함께 고친다 |
 | `docs/assets/screenshots/{날짜}/` | 스크린샷 `순번-화면-상태.jpg` | **커밋 안 함**(.gitignore) |
 
 - 팀 공유 리포트는 `docs/reports/` 다. **`dev-notes/` 에 두지 말 것** — 읽는
