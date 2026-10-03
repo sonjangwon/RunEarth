@@ -11,13 +11,16 @@ import '../../../core/models/air_quality.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/models/run.dart';
+import '../../../core/models/weather.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../services/sync/run_sync_service.dart';
 import '../../home/data/home_providers.dart';
 import '../data/air_quality_provider.dart';
 import '../data/run_tracker.dart';
 import '../data/voice_guide.dart';
+import '../data/weather_provider.dart';
 import 'cover_photo_sheet.dart';
 import 'route_image_renderer.dart';
 import 'run_detail_view.dart';
@@ -1115,31 +1118,56 @@ class _RunTypeCard extends ConsumerWidget {
 /// **Figma 에는 체감온도가 없고 대신 상태 텍스트가 있다.** 미세먼지 배경
 /// (결정 ⑥)과 같은 판단으로 Figma 를 따른다.
 ///
-/// 🔴 **값은 샘플이다. 실제 관측값이 아니다.** 기상청 API 키가 나오기 전이라
-/// 화면만 만들어둔 상태다(`feature-backlog.md`). 미세먼지
-/// (`air_quality_provider.dart`)도 같은 이유로 샘플이다.
-///
-/// ⚠️ 시연에서 진짜처럼 보인다. 팀에 보여줄 때 연동 전이라고 말할 것.
-class _WeatherCard extends StatelessWidget {
+/// 값은 **기상청 초단기실황·초단기예보**에서 온다(2026-10-03 연동,
+/// `weather_provider.dart`). 위치를 모르거나 불러오지 못하면
+/// "불러오지 못했어요" — 샘플 값으로 채우지 않는다. 규칙은 `run-flow.md` 10.
+class _WeatherCard extends ConsumerWidget {
   const _WeatherCard();
 
   @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weather = ref.watch(weatherProvider);
+    return weather.when(
+      loading: () => const _MiniCard(child: _WeatherBody(null, loading: true)),
+      error: (_, _) => const _MiniCard(child: _CardUnavailable('날씨')),
+      data: (reading) => reading == null
+          ? const _MiniCard(child: _CardUnavailable('날씨'))
+          : _MiniCard(child: _WeatherBody(reading)),
+    );
+  }
+}
+
+class _WeatherBody extends StatelessWidget {
+  const _WeatherBody(this.reading, {this.loading = false});
+  final WeatherReading? reading;
+  final bool loading;
+
+  @override
   Widget build(BuildContext context) {
-    return _MiniCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('날씨',
-              style: AppTextStyles.sans(
-                  fontSize: 9, color: AppColors.mutedForeground)),
-          const SizedBox(height: 4),
-          // 이모지·기온·상태가 한 줄이다. Figma 샘플값(28°C 맑음)을 그대로 쓴다.
-          Text('☀️ 28°C 맑음',
+    final r = reading;
+    final condition = r?.condition;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('날씨',
+            style: AppTextStyles.sans(
+                fontSize: 9, color: AppColors.mutedForeground)),
+        const SizedBox(height: 4),
+        if (loading || r == null)
+          const SkeletonBox(width: 80, height: 17, radius: 4)
+        else
+          // 이모지·기온·상태가 한 줄이다(Figma `☀️ 28°C 맑음`).
+          // 하늘상태를 못 받았으면 기온만 보인다.
+          Text(
+              condition == null
+                  ? '${r.temperature}°C'
+                  : '${condition.emoji} ${r.temperature}°C ${condition.label}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: AppTextStyles.sans(
                   fontSize: 14, fontWeight: FontWeight.w600)),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -1161,7 +1189,7 @@ class _DustCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reading = ref.watch(airQualityProvider);
-    if (reading == null) return const _MiniCard(child: _DustUnavailable());
+    if (reading == null) return const _MiniCard(child: _CardUnavailable('미세먼지'));
 
     final level = reading.level;
     final color = _dustColor(level);
@@ -1299,11 +1327,14 @@ class _DustGauge extends StatelessWidget {
 /// 값을 못 가져왔을 때. `global-states.md` 의 인라인 에러 패턴 —
 /// 중립 아이콘 + "불러오지 못했어요".
 ///
-/// "다시 시도" 버튼은 **아직 붙이지 않았다.** 재호출할 요청 자체가 없어
-/// 누르면 아무 일도 하지 않는 버튼이 된다. 에어코리아 연동 때 함께 만든다
-/// (2026-09-19 의 '대표 이미지 변경' 버튼과 같은 판단).
-class _DustUnavailable extends StatelessWidget {
-  const _DustUnavailable();
+/// 날씨·미세먼지 카드가 같이 쓴다.
+///
+/// "다시 시도" 버튼은 **아직 붙이지 않았다.** 날씨는 탭을 다시 열면 다시
+/// 부르고, 미세먼지는 아직 재호출할 요청이 없다. 에어코리아 연동 때 함께
+/// 정한다(2026-09-19 의 '대표 이미지 변경' 버튼과 같은 판단).
+class _CardUnavailable extends StatelessWidget {
+  const _CardUnavailable(this.label);
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -1311,7 +1342,7 @@ class _DustUnavailable extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('미세먼지',
+        Text(label,
             style: AppTextStyles.sans(
                 fontSize: 9, color: AppColors.mutedForeground)),
         const SizedBox(height: 3),

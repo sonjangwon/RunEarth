@@ -346,6 +346,12 @@ class _SettingsSection extends ConsumerWidget {
           Text(version,
               style: AppTextStyles.mono(
                   fontSize: 10, color: AppColors.mutedForeground)),
+        // 공공데이터 이용허락이 '저작자표시'라 출처를 밝힌다. 출발 전 카드는
+        // 자리가 빠듯해 여기 둔다(run-flow.md 10-4).
+        const SizedBox(height: 4),
+        Text('날씨 정보: 기상청',
+            style: AppTextStyles.sans(
+                fontSize: 10, color: AppColors.mutedForeground)),
       ],
     );
   }
