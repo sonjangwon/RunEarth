@@ -46,20 +46,23 @@ class WeatherCache {
 final weatherCacheProvider =
     Provider<WeatherCache>((ref) => WeatherCache(KmaWeatherService()));
 
-/// 출발 전 날씨 카드의 값. null 이면 "불러오지 못했어요".
+/// 출발 전 카드(날씨·미세먼지)가 보는 위치 — 기상청 격자(5km) 단위.
 ///
-/// 위치는 출발 전 지도와 같은 값(`RunSessionState.current`, 기기의 마지막
-/// 위치)을 쓴다. **위치를 모르면 null** — 서울 날씨로 대신하지 않는다
-/// (2026-10-03 사용자 결정). 권한을 묻는 시점은 START 라 처음 설치한 사람은
-/// 첫 달리기 전까지 이 상태다.
-///
-/// 격자(5km) 단위로만 다시 계산한다 — 좌표가 조금 흔들려도 다시 부르지 않는다.
-final weatherProvider = FutureProvider.autoDispose<WeatherReading?>((ref) async {
-  if (!PublicDataConfig.isConfigured) return null;
-  final grid = ref.watch(runTrackerProvider.select((s) {
+/// 출발 전 지도와 같은 값(`RunSessionState.current`, 기기의 마지막 위치)이다.
+/// **위치를 모르면 null** — 서울 값으로 대신하지 않는다(2026-10-03 사용자
+/// 결정). 권한을 묻는 시점은 START 라 처음 설치한 사람은 첫 달리기 전까지
+/// 이 상태다. 격자 단위라 좌표가 조금 흔들려도 다시 부르지 않는다.
+final prerunGridProvider = Provider.autoDispose<KmaGrid?>((ref) {
+  return ref.watch(runTrackerProvider.select((s) {
     final p = s.current;
     return p == null ? null : toKmaGrid(p.lat, p.lng);
   }));
+});
+
+/// 출발 전 날씨 카드의 값. null 이면 "불러오지 못했어요".
+final weatherProvider = FutureProvider.autoDispose<WeatherReading?>((ref) async {
+  if (!PublicDataConfig.isConfigured) return null;
+  final grid = ref.watch(prerunGridProvider);
   if (grid == null) return null;
   return ref.read(weatherCacheProvider).get(grid);
 });

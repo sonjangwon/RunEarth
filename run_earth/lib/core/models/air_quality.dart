@@ -19,6 +19,19 @@ enum AirQuality {
   /// 카드 배경색을 켤 단계인지 — 문서상 `나쁨`·`매우나쁨` 만 해당한다.
   /// `좋음`·`보통` 은 중립(무채색) 배경을 유지한다.
   bool get needsAlertBackground => this == bad || this == veryBad;
+
+  /// PM10 1시간 측정값(㎍/㎥) → 단계. 환경부 예보 등급 구간
+  /// (좋음 0~30 · 보통 31~80 · 나쁨 81~150 · 매우나쁨 151~).
+  ///
+  /// 에어코리아가 주는 등급(`pm10Grade`)을 쓰지 않는 이유: 24시간 평균 기준이라
+  /// 화면에 보이는 1시간 값과 단계가 어긋날 수 있다. 숫자·마커·pill 이 늘 서로
+  /// 맞게 숫자에서 계산한다(2026-10-03 사용자 결정, `run-flow.md` 10).
+  static AirQuality fromPm10(int pm10) {
+    if (pm10 <= 30) return good;
+    if (pm10 <= 80) return moderate;
+    if (pm10 <= 150) return bad;
+    return veryBad;
+  }
 }
 
 /// 미세먼지 측정값 한 건 — 단계 + 농도.

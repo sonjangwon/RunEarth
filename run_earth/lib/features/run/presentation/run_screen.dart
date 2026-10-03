@@ -1128,7 +1128,7 @@ class _WeatherCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final weather = ref.watch(weatherProvider);
     return weather.when(
-      loading: () => const _MiniCard(child: _WeatherBody(null, loading: true)),
+      loading: () => const _MiniCard(child: _LoadingBody('날씨')),
       error: (_, _) => const _MiniCard(child: _CardUnavailable('날씨')),
       data: (reading) => reading == null
           ? const _MiniCard(child: _CardUnavailable('날씨'))
@@ -1138,14 +1138,12 @@ class _WeatherCard extends ConsumerWidget {
 }
 
 class _WeatherBody extends StatelessWidget {
-  const _WeatherBody(this.reading, {this.loading = false});
-  final WeatherReading? reading;
-  final bool loading;
+  const _WeatherBody(this.reading);
+  final WeatherReading reading;
 
   @override
   Widget build(BuildContext context) {
-    final r = reading;
-    final condition = r?.condition;
+    final condition = reading.condition;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1154,19 +1152,37 @@ class _WeatherBody extends StatelessWidget {
             style: AppTextStyles.sans(
                 fontSize: 9, color: AppColors.mutedForeground)),
         const SizedBox(height: 4),
-        if (loading || r == null)
-          const SkeletonBox(width: 80, height: 17, radius: 4)
-        else
-          // 이모지·기온·상태가 한 줄이다(Figma `☀️ 28°C 맑음`).
-          // 하늘상태를 못 받았으면 기온만 보인다.
-          Text(
-              condition == null
-                  ? '${r.temperature}°C'
-                  : '${condition.emoji} ${r.temperature}°C ${condition.label}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.sans(
-                  fontSize: 14, fontWeight: FontWeight.w600)),
+        // 이모지·기온·상태가 한 줄이다(Figma `☀️ 28°C 맑음`).
+        // 하늘상태를 못 받았으면 기온만 보인다.
+        Text(
+            condition == null
+                ? '${reading.temperature}°C'
+                : '${condition.emoji} ${reading.temperature}°C ${condition.label}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.sans(fontSize: 14, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+/// 날씨·미세먼지 카드를 불러오는 중 — 라벨은 그대로, 값 자리만 뼈대
+/// (`global-states.md` 3 "카드 모양 그대로").
+class _LoadingBody extends StatelessWidget {
+  const _LoadingBody(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: AppTextStyles.sans(
+                fontSize: 9, color: AppColors.mutedForeground)),
+        const SizedBox(height: 4),
+        const SkeletonBox(width: 80, height: 17, radius: 4),
       ],
     );
   }
@@ -1188,7 +1204,11 @@ class _DustCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reading = ref.watch(airQualityProvider);
+    final async = ref.watch(airQualityProvider);
+    if (async.isLoading) {
+      return const _MiniCard(child: _LoadingBody('미세먼지'));
+    }
+    final reading = async.valueOrNull;
     if (reading == null) return const _MiniCard(child: _CardUnavailable('미세먼지'));
 
     final level = reading.level;
@@ -1329,9 +1349,8 @@ class _DustGauge extends StatelessWidget {
 ///
 /// 날씨·미세먼지 카드가 같이 쓴다.
 ///
-/// "다시 시도" 버튼은 **아직 붙이지 않았다.** 날씨는 탭을 다시 열면 다시
-/// 부르고, 미세먼지는 아직 재호출할 요청이 없다. 에어코리아 연동 때 함께
-/// 정한다(2026-09-19 의 '대표 이미지 변경' 버튼과 같은 판단).
+/// "다시 시도" 버튼은 두지 않는다 — 탭을 다시 열면 다시 부른다. 실패는
+/// 기억하지 않으므로 그것으로 충분하다(`run-flow.md` 10-3).
 class _CardUnavailable extends StatelessWidget {
   const _CardUnavailable(this.label);
   final String label;

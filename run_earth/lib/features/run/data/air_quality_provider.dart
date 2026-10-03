@@ -1,31 +1,70 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/air_quality.dart';
+import '../../../services/weather/air_korea_service.dart';
+import '../../../services/weather/kma_grid.dart';
+import '../../../services/weather/kma_weather_service.dart';
+import 'run_tracker.dart';
+import 'weather_provider.dart';
 
-/// 출발 전 화면의 미세먼지 값.
+/// 받아온 미세먼지와 근접 측정소를 기억한다. 날씨(`WeatherCache`)와 같은
+/// 규칙이다 — 메모리에만, 다음 측정값이 올라올 때까지, 실패는 기억하지 않는다.
 ///
-/// 🔴 **지금 값은 샘플이다. 실제 측정값이 아니다.** (2026-09-27 사용자 결정)
+/// 측정소는 위치가 안 바뀌니 **격자가 바뀔 때만** 다시 찾는다. 그래서
+/// 평소에는 측정값 1건만 부른다(에어코리아 한도가 일 500건이라 아낀다).
+class AirQualityCache {
+  AirQualityCache(this._service, {DateTime Function()? now}) : _now = now ?? kstNow;
+
+  final AirKoreaService _service;
+  final DateTime Function() _now;
+
+  KmaGrid? _grid;
+  List<String>? _stations;
+  AirFetch? _last;
+  Future<AirQualityReading?>? _inFlight;
+
+  /// [grid] 는 바뀌었는지 보는 열쇠, [lat]·[lng] 는 측정소를 찾을 좌표.
+  Future<AirQualityReading?> get(KmaGrid grid, double lat, double lng) {
+    final last = _last;
+    if (grid == _grid && last != null && _now().isBefore(last.expiresAt)) {
+      return Future.value(last.reading);
+    }
+    return _inFlight ??=
+        _fetch(grid, lat, lng).whenComplete(() => _inFlight = null);
+  }
+
+  Future<AirQualityReading?> _fetch(KmaGrid grid, double lat, double lng) async {
+    try {
+      if (grid != _grid || _stations == null) {
+        _stations = await _service.nearbyStations(toTm(lat, lng));
+        _grid = grid;
+        _last = null;
+      }
+      final fetched = await _service.fetch(_stations!);
+      _last = fetched;
+      return fetched.reading;
+    } catch (e) {
+      // 예외 메시지에 요청 URL(=인증키)이 들어갈 수 있어 타입만 남긴다.
+      debugPrint('[air] 불러오기 실패: ${e.runtimeType}');
+      return null;
+    }
+  }
+}
+
+final airQualityCacheProvider =
+    Provider<AirQualityCache>((ref) => AirQualityCache(AirKoreaService()));
+
+/// 출발 전 미세먼지 카드의 값(PM10). null 이면 "불러오지 못했어요".
 ///
-/// 미세먼지는 기상청이 아니라 에어코리아(한국환경공단) API 소관이고,
-/// **API 키가 아직 안 나왔다**(2026-09-20 노트 §6 · `feature-backlog.md`).
-/// 그때까지 화면이 "불러오지 못했어요" 로만 보이는 대신 값을 채워두기로 했다
-/// — 같은 화면의 온도(`_WeatherCard` 의 `24°`)도 하드코딩이라, 한쪽만 비어
-/// 있으면 화면이 반쪽으로 보였다. **둘을 같은 상태로 맞춘 것이다.**
-/// (2026-10-03 — 날씨는 기상청 연동으로 실제 값이 됐다. 키는 발급됐고 이
-/// 파일이 다음 차례다. `run-flow.md` 10.)
-///
-/// ⚠️ **그래서 이 카드는 시연에서 진짜처럼 보인다.** 팀에 보여줄 때는
-/// 미세먼지·온도 둘 다 아직 연동 전이라고 말해야 한다.
-///
-/// 연동할 때 **이 파일만 갈아끼우면 된다.** 화면은 `null` 이면
-/// "불러오지 못했어요" 를 그리도록 이미 돼 있다(`offline-handling.md` §2-A).
-/// 같이 할 것: 위경도 → TM 좌표 → 근접 측정소 조회, 실패 시 "다시 시도"
-/// 버튼(`global-states.md` 인라인 에러 패턴).
-///
-/// 값은 **Figma 샘플과 같은 `보통` · 42** 로 맞췄다(`App.tsx` 678줄).
-/// 4단계 중 평상시를 대표하는 값이고, 게이지 마커가 28% 지점에 놓여
-/// 좌우가 다 보인다 — `좋음`(0 쪽)이나 `매우나쁨`(끝)이면 마커가 가장자리에
-/// 붙어 게이지 모양을 확인하기 어렵다.
-final airQualityProvider = Provider<AirQualityReading?>(
-  (ref) => const AirQualityReading(level: AirQuality.moderate, value: 42),
-);
+/// 에어코리아 연동(2026-10-03). 그전에는 Figma 샘플(`보통` · 42)을 채워두고
+/// 있었다. 위치·실패 처리는 날씨와 같다 — 규칙은 `run-flow.md` 10.
+final airQualityProvider =
+    FutureProvider.autoDispose<AirQualityReading?>((ref) async {
+  if (!PublicDataConfig.isConfigured) return null;
+  final grid = ref.watch(prerunGridProvider);
+  if (grid == null) return null;
+  final p = ref.read(runTrackerProvider).current;
+  if (p == null) return null;
+  return ref.read(airQualityCacheProvider).get(grid, p.lat, p.lng);
+});
