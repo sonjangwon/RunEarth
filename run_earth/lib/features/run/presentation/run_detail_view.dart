@@ -351,7 +351,7 @@ class _SectionLabel extends StatelessWidget {
 ///
 /// 평균 심박수·케이던스는 **웨어러블 데이터**라 아직 값이 없다
 /// (`wearable-sync.md`, MVP 이후). 칸을 지우지 않고 `--` 로 둔다 —
-/// 칼로리가 이미 같은 방식이고, 자리를 비워두면 연동됐을 때 레이아웃이 흔들린다.
+/// 자리를 비워두면 연동됐을 때 레이아웃이 흔들린다. 규칙은 `records.md` 3.
 class _DetailGrid extends StatelessWidget {
   const _DetailGrid({
     required this.distanceStr,

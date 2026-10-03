@@ -75,7 +75,7 @@ class RunDetailScreen extends ConsumerWidget {
               durStr: run.dur,
               distanceStr: run.km.toStringAsFixed(2),
               paceStr: run.pace,
-              kcal: run.kcal,
+              kcal: run.displayKcal,
               onClose: close,
               headerTrailing: Row(
                 mainAxisSize: MainAxisSize.min,

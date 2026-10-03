@@ -80,8 +80,9 @@ class RunSessionState {
     return h > 0 ? '${h.toString().padLeft(2, '0')}:$m:$s' : '$m:$s';
   }
 
-  /// 소모 칼로리(kcal). 정확한 계산엔 체중이 필요한데 현재 입력 수단이 없어
-  /// 0(미표시)으로 둔다. 프로필에 체중 입력이 생기면 계산식 연결. [보류]
+  /// **측정한** 소모 칼로리(kcal) — 저장되는 값. 폰만으로는 잴 수 없어 0 이다.
+  /// 화면에 보이는 칼로리는 추정값(`estimateKcal`)이고 저장하지 않는다
+  /// (`Run.displayKcal` 참조).
   int get kcal => 0;
 
   RunSessionState copyWith({

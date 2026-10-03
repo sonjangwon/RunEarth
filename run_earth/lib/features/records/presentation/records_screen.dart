@@ -463,14 +463,14 @@ class _RunCard extends ConsumerWidget {
                       const SizedBox(width: 10),
                       _MetaItem(icon: Icons.bolt, text: run.pace),
                       const SizedBox(width: 10),
-                      // 칼로리는 아직 계산하지 않는다(체중 입력이 없다 —
-                      // `run_tracker.dart` 의 [보류]). 상세 화면은 이미 '--'
-                      // 로 비워 두는데 카드만 '0' 을 적고 있었다. 0 은 "태운
-                      // 게 없다" 는 **값**으로 읽히고, 같은 기록을 카드와
-                      // 상세에서 다르게 보여준다(2026-09-25).
+                      // 칼로리는 체중 80kg 가정 추정값이다(`Run.displayKcal`).
+                      // 0 은 "태운 게 없다" 는 **값**으로 읽히므로 '--' 로
+                      // 비운다 — 상세와 같은 규칙(2026-09-25).
                       _MetaItem(
                           icon: Icons.local_fire_department,
-                          text: run.kcal > 0 ? '${run.kcal}' : '--'),
+                          text: run.displayKcal > 0
+                              ? '${run.displayKcal}'
+                              : '--'),
                     ],
                   ),
                 ],

@@ -75,3 +75,20 @@ extension RunCompleteness on Run {
   /// 않는다. 근거는 `records.md` §4-1.
   bool get isIncomplete => km < 0.01;
 }
+
+/// 칼로리 추정에 쓰는 가정 체중(kg). 체중 입력 수단이 없어 고정값을 쓴다
+/// (2026-10-03 사용자 결정). 입력이 생기면 이 자리만 바꾼다. 근거는 `records.md` 3.
+const double kAssumedWeightKg = 80;
+
+/// 달리기 칼로리 추정 — 체중(kg) × 거리(km). 달리기는 속도와 거의 무관하게
+/// 1kg·1km 당 약 1kcal 이 든다.
+int estimateKcal(double km) => (kAssumedWeightKg * km).round();
+
+extension RunCalories on Run {
+  /// 화면에 보일 칼로리. 저장값이 있으면(워치 연동 등) 그것을, 없으면 추정한다.
+  ///
+  /// 추정값은 **저장하지 않는다.** 저장하면 이미 올라간 기록을 다시 올려야
+  /// 하고, 내려받기가 로컬 값을 유지하므로(`offline-handling.md` §4-1) 기기마다
+  /// 숫자가 어긋난다. 화면에서 계산하면 체중이 바뀌어도 한 곳만 고치면 된다.
+  int get displayKcal => kcal > 0 ? kcal : estimateKcal(km);
+}

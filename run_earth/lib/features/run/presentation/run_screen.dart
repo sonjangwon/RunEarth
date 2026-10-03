@@ -437,7 +437,9 @@ class _RunScreenState extends ConsumerState<RunScreen> {
           durStr: state.elapsedStr,
           distanceStr: state.distanceStr,
           paceStr: state.paceStr,
-          kcal: state.kcal,
+          // 저장된 기록과 같은 값이 나오게, `buildRun` 처럼 소수 둘째 자리 km 로 추정한다.
+          kcal: _savedRun?.displayKcal ??
+              estimateKcal(double.parse(state.distanceKm.toStringAsFixed(2))),
           closeIcon: RunDetailClose.x,
           onClose: _closeResult,
           // 저장 전에는 null — 위 [_savedRun] 참조.
