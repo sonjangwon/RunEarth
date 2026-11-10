@@ -1,11 +1,20 @@
 # Run Earth
 
-러닝 습관화 앱. 달린 거리를 누적해 **"지구 한 바퀴 여정"**(서울→인천→…→부에노스아이레스)을
-진행하는 것이 핵심 컨셉이다.
+달린 거리를 누적해 **서울에서 부에노스아이레스까지 22개 도시, 19,432 km의 "지구 한 바퀴 여정"**으로
+바꿔주는 러닝 습관화 앱. 1인 개발로 **20개 기능의 Android MVP**를 완성했다.
 
-- **Flutter** (iOS·Android) — 앱 코드는 [`run_earth/`](run_earth/)
-- **Supabase** (Auth + Postgres + RLS) — MVP 는 serverless
-- **local-first**: 로컬 DB(drift)가 1차 진실 소스, 서버 업로드는 후행 처리
+## 핵심 설계
+
+- **Local-first 아키텍처** — 기기 내 DB(drift)가 1차 저장소이고, 러닝 기록은 Supabase로
+  무제한 재시도하며 동기화한다. 오프라인에서도 기록이 유실되지 않고, 새 기기나 재설치 시 복원된다.
+- **신뢰할 수 있는 GPS 트래킹** — 화면이 꺼져도 트래킹이 계속되고, 강제 종료 후에도 이어서 복구된다.
+- **전용 서버 없는 백엔드** — Supabase Edge Functions와 pg_cron으로 서버 로직과 예약 작업을 처리한다.
+
+## 기술 스택
+
+Flutter · Riverpod · drift (SQLite) · Supabase (Auth · Postgres · RLS · Edge Functions · pg_cron) · Google Maps
+
+- 앱 코드: [`run_earth/`](run_earth/)
 
 ---
 
