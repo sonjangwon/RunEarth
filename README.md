@@ -40,15 +40,6 @@ Flutter · Riverpod · go_router · drift (SQLite) · Google Maps · Supabase ·
 
 ---
 
-## 문서 = 단일 출처
-
-- 기능 작업 전 [`docs/features/{기능}.md`](docs/features/) 를 먼저 읽는다.
-- 전체 현황은 [`docs/feature-backlog.md`](docs/feature-backlog.md)
-- 세션별 작업 기록·미해결 문제는 [`docs/dev-notes/`](docs/dev-notes/) — **최신 노트부터 읽으면
-  지금 어디까지 왔는지 파악된다.**
-- 서버 스키마 SQL 은 [`supabase/migrations/`](supabase/migrations/) 에 기록만 해둔다
-  (CLI 미도입 — 대시보드에서 실행 후 파일도 추가할 것).
-
 ## 폴더 구조 (`run_earth/lib/`)
 
 ```
